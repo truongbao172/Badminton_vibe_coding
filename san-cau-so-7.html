@@ -1498,7 +1498,8 @@ function lanJoin() {
   $('menuNote').hidden = true;
   showLobby('Đang kết nối…', '', []);
   let sock;
-  try { sock = new WebSocket(`ws://${location.host}/ws?court=${S.court + 1}&fmt=${S.fmt}&name=${encodeURIComponent(myName())}&look=${encodeURIComponent(JSON.stringify(myLook))}`); } catch (e) { lanEnd('Không kết nối được máy chủ LAN.'); return; }
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  try { sock = new WebSocket(`${proto}://${location.host}/ws?court=${S.court + 1}&fmt=${S.fmt}&name=${encodeURIComponent(myName())}&look=${encodeURIComponent(JSON.stringify(myLook))}`); } catch (e) { lanEnd('Không kết nối được máy chủ LAN.'); return; }
   ws = sock;
   sock.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (_) { return; } onNet(m); };
   sock.onclose = () => { if (ws === sock) lanEnd(S.mode === 'ai' ? 'Không kết nối được máy chủ LAN. Kiểm tra server.js còn chạy không.' : 'Mất kết nối với máy chủ.'); };
@@ -1517,7 +1518,7 @@ function onNet(m) {
     setFormat(m.fmt); setCourt((m.court | 0) - 1);
     if (S.mode === 'host') {
       placeBackdrop();
-      showLobby('Đang chờ người chơi', `Gửi một trong các link dưới đây cho bạn dùng chung mạng Wi-Fi. Bạn ấy mở link, chọn sân ${S.court + 1} rồi bấm CHƠI LAN. Bấm vào ô trống để đổi vị trí, ô nào không có người thì máy đánh.`, m.urls || []);
+      showLobby('Đang chờ người chơi', `Gửi link dưới đây cho bạn cùng chơi. Bạn ấy mở link, chọn sân ${S.court + 1} rồi bấm CHƠI LAN. Bấm vào ô trống để đổi vị trí, ô nào không có người thì máy đánh.`, m.urls || []);
     } else showLobby('Đã vào sân', 'Bấm vào ô trống để chọn vị trí muốn chơi, rồi chờ chủ sân bắt đầu trận.', []);
   } else if (m.t === 'roster') {
     const prevNames = S.names;
