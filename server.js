@@ -52,20 +52,28 @@ const inviteURLs = () => PUBLIC_URL ? [PUBLIC_URL] : lanIPs().map(ip => `http://
 const rooms = Array.from({ length: COURTS }, () => ({ fmt: 'don', seats: [null, null, null, null], host: null, started: false }));
 const cap = r => r.fmt === 'doi' ? 4 : 2;
 const count = r => r.seats.filter(Boolean).length;
-// Kiểu nhân vật người chơi gửi lên: chỉ nhận 5 mã màu 24-bit và một kiểu tóc hợp lệ
+// Kiểu nhân vật người chơi gửi lên: chỉ nhận mã màu 24-bit, một kiểu tóc hợp lệ, và quần hoặc váy (mặc định quần).
+// Quần và váy có màu riêng; trang bản cũ không gửi màu váy thì dùng màu trắng.
 const HAIR = ['short', 'tail', 'band', 'bald'];
+// Vợt: 'plain' (một màu) hoặc 'custom' (Kumpoo K520 Pro / Yonex Astrox 100ZZ) với một trong các phiên bản màu.
+// Trang bản cũ gửi 'k520' thì coi như 'custom'.
+const RACKET_IDS = ['xanh', 'hong', 'vang', 'den', 'zznavy', 'zzred', 'zzva'];
 function parseLook(raw) {
   try {
     const o = JSON.parse(raw || 'null'), c = v => Number.isInteger(v) && v >= 0 && v <= 0xffffff;
     if (!o || !['shirt', 'shorts', 'skin', 'hair', 'racket'].every(k => c(o[k])) || !HAIR.includes(o.hs)) return null;
-    return { shirt: o.shirt, shorts: o.shorts, skin: o.skin, hair: o.hair, racket: o.racket, hs: o.hs };
+    return { shirt: o.shirt, shorts: o.shorts, skirt: c(o.skirt) ? o.skirt : 0xf2f2ee, skin: o.skin, hair: o.hair, racket: o.racket, hs: o.hs, bt: o.bt === 'skirt' ? 'skirt' : 'shorts',
+      rk: o.rk === 'custom' || o.rk === 'k520' ? 'custom' : 'plain', rkv: RACKET_IDS.includes(o.rkv) ? o.rkv : 'xanh', str: c(o.str) ? o.str : 0xf4f4f2,
+      hand: o.hand === 'L' ? 'L' : 'R' }; // tay cầm vợt: phải (mặc định) hoặc trái
   } catch { return null; }
 }
-// Người đang mở trang: mỗi trang hỏi /rooms vài giây một lần kèm mã riêng; quá 8 giây không hỏi thì coi như đã thoát.
+// Người đang mở trang: mỗi trình duyệt có một mã riêng (giữ nguyên khi tải lại trang) và hỏi /rooms vài giây một lần;
+// quá 8 giây không hỏi thì coi như đã thoát. Đóng tab thì trang gửi ?bye=<mã> để xoá ngay.
 const seen = new Map();
-function online(id) {
+function online(id, bye) {
   const now = Date.now();
-  if (id) seen.set(id, now);
+  if (bye) seen.delete(bye);
+  else if (id) seen.set(id, now);
   for (const [k, t] of seen) if (now - t > 8000) seen.delete(k);
   return seen.size;
 }
@@ -79,10 +87,11 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'max-age=86400' });
     fs.createReadStream(THREE_FILE).pipe(res);
   } else if (url === '/rooms') {
-    const id = (new URL(req.url, 'http://lan').searchParams.get('id') || '').slice(0, 32);
+    const q = new URL(req.url, 'http://lan').searchParams;
+    const id = (q.get('id') || '').slice(0, 32), bye = (q.get('bye') || '').slice(0, 32);
     res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
     res.end(JSON.stringify({
-      online: online(id),
+      online: online(id, bye),
       playing: rooms.reduce((n, r) => n + count(r), 0),
       rooms: rooms.map(r => ({ fmt: r.fmt, n: count(r), cap: cap(r), full: count(r) >= cap(r), started: r.started, names: r.seats.filter(Boolean).map(p => p.name) })),
     }));
@@ -121,7 +130,10 @@ class Peer {
   close() {
     if (!this.open) return;
     try { this.sock.write(wsFrame(8, Buffer.alloc(0))); } catch {}
+    this.open = false;
     this.sock.end();
+    // Proxy (Render, Nginx…) có thể giữ kết nối mở nửa chừng: sau 1 giây thì cắt hẳn.
+    setTimeout(() => this.sock.destroy(), 1000).unref();
   }
   onData(d) {
     this.buf = Buffer.concat([this.buf, d]);
@@ -139,7 +151,8 @@ class Peer {
       const data = Buffer.from(b.subarray(off, off + len));
       if (masked) for (let i = 0; i < len; i++) data[i] ^= b[maskAt + (i & 3)];
       this.buf = b.subarray(off + len);
-      if (op === 8) { this.close(); return; }
+      // Người chơi bấm Huỷ / Rời sân: trả ghế ngay, không chờ kết nối TCP đóng hẳn
+      if (op === 8) { this.leave(); this.close(); return; }
       if (op === 9) { this.sock.write(wsFrame(10, data)); continue; }
       if (op === 0 || op === 1) {
         this.frag = this.frag ? Buffer.concat([this.frag, data]) : data;
@@ -171,7 +184,12 @@ class Peer {
   onClose() {
     this.open = false;
     clearInterval(this.ping);
+    this.leave();
+  }
+  // Rời sân, gọi được nhiều lần: lần đầu trả ghế, các lần sau không làm gì.
+  leave() {
     const r = this.room;
+    this.room = null;
     if (!r || r.seats[this.seat] !== this) return;
     r.seats[this.seat] = null;
     if (this === r.host) {

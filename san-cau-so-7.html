@@ -608,14 +608,19 @@ function figure(look) {
   const g = new THREE.Group();
   const m = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7 });
   const skin = m(look.skin), top = m(look.shirt), shoe = m(0xf1f1ee), bottom = m(look.shorts), hairM = m(look.hair), frame = m(look.racket);
+  bottom.side = THREE.DoubleSide; // the skirt is an open cone, seen from inside too
   const add = (geo, mt, x, y, z, parent) => { const o = new THREE.Mesh(geo, mt); o.position.set(x, y, z); o.castShadow = true; parent.add(o); return o; };
   const joint = (parent, x, y, z) => { const j = new THREE.Group(); j.position.set(x, y, z); parent.add(j); return j; };
   const cyl = (r0, r1, h) => new THREE.CylinderGeometry(r0, r1, h, 10);
   const pelvis = joint(g, 0, HIP_DROP + THIGH + SHIN + FOOT, 0);
   add(new THREE.CylinderGeometry(0.17, 0.16, 0.22, 12), bottom, 0, -0.02, 0, pelvis);
+  // Bottoms: shorts cover the top of each thigh and swing with the leg; a skirt flares out from the waist
+  const skirt = add(new THREE.CylinderGeometry(0.175, 0.27, 0.3, 18, 1, true), bottom, 0, -0.16, 0, pelvis);
+  const shortLegs = [];
   const legs = [-1, 1].map(s => {
     const hip = joint(pelvis, s * 0.1, -HIP_DROP, 0);
     add(cyl(0.075, 0.06, THIGH), skin, 0, -THIGH / 2, 0, hip);
+    shortLegs.push(add(cyl(0.088, 0.08, 0.17), bottom, 0, -0.07, 0, hip));
     const knee = joint(hip, 0, -THIGH, 0);
     add(cyl(0.058, 0.045, SHIN), skin, 0, -SHIN / 2, 0, knee);
     const ankle = joint(knee, 0, -SHIN, 0);
@@ -641,27 +646,213 @@ function figure(look) {
     return { sh, el, wr };
   };
   const R = arm(1), L = arm(-1);
-  add(new THREE.CylinderGeometry(0.016, 0.016, 0.2, 8), m(0x22252a), 0, -0.1, 0, R.wr);
-  add(new THREE.CylinderGeometry(0.006, 0.006, 0.24, 6), m(0xcfd6dc), 0, -0.32, 0, R.wr);
-  const head = add(new THREE.TorusGeometry(0.1, 0.009, 8, 28), frame, 0, -0.55, 0, R.wr); head.scale.y = 1.25;
+  // Racket: a plain one in the chosen colour, or a custom one (K520 Pro, 100ZZ) with its real paint job (customRacket)
+  const plain = joint(R.wr, 0, 0, 0);
+  add(new THREE.CylinderGeometry(0.016, 0.016, 0.2, 8), m(0x22252a), 0, -0.1, 0, plain);
+  add(new THREE.CylinderGeometry(0.006, 0.006, 0.24, 6), m(0xcfd6dc), 0, -0.32, 0, plain);
+  const head = add(new THREE.TorusGeometry(0.1, 0.009, 8, 28), frame, 0, -0.55, 0, plain); head.scale.y = 1.25;
   const str = new THREE.Mesh(new THREE.CircleGeometry(0.1, 24), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25, side: THREE.DoubleSide }));
-  str.position.y = -0.55; str.scale.y = 1.25; R.wr.add(str);
-  const f = { g, pelvis, torso, neck, legs, R, L, mats: { skin, top, bottom, hairM, frame }, hair: { cap, tail, band } };
+  str.position.y = -0.55; str.scale.y = 1.25; plain.add(str);
+  const custom = customRacket(R.wr);
+  const racket = { plain, custom, center: joint(R.wr, 0, -0.62, 0), strings: [str.material, custom.strMat] };
+  const f = { g, pelvis, torso, neck, legs, R, L, mats: { skin, top, bottom, hairM, frame }, hair: { cap, tail, band }, wear: { skirt, shortLegs }, racket };
   applyLook(f, look);
   return f;
 }
 const HAIR_STYLES = ['short', 'tail', 'band', 'bald'];
+// Custom rackets, drawn from product photos. Each version names its model:
+// - Kumpoo K520 Pro: matte frame with swirl accents on both shoulders and near the tip, "Kumpoo" and "K520 PRO"
+//   printed along the shaft. Four paint versions sold in Vietnam.
+// - Yonex Astrox 100ZZ: dark glossy frame with a gold pinstripe along both faces and a lighter band on the
+//   shoulders, "YONEX" and "ASTROX 100 ZZ" on the shaft. Dark Navy, Kurenai (red) and the VA edition.
+// All have grommet holes along the outer edge, a small black logo under the T-joint and a wrapped grip.
+const RACKET_MODELS = {
+  k520: { name: 'K520 Pro', brand: 'Kumpoo', label: 'K520 PRO', brandFont: 'italic 600 24px sans-serif', labelFont: 'italic 800 34px sans-serif', gloss: 0.85 },
+  zz: { name: '100ZZ', brand: 'YONEX', label: 'ASTROX 100 ZZ', brandFont: '800 24px sans-serif', labelFont: 'italic 700 26px sans-serif', gloss: 0.4 },
+};
+const RACKETS = {
+  xanh: { model: 'k520', name: 'Trắng xanh', base: '#f2f3f5', a1: '#27a9e1', a2: '#1b1f3b', text: '#1f8fd0', grip: '#f4f4f2', line: '#d4d7dc', hole: '#9aa1ab', cap: '#1b1f3b' },
+  hong: { model: 'k520', name: 'Trắng hồng', base: '#f4f2f4', a1: '#ec5f9a', a2: '#2a2030', text: '#e0508c', grip: '#f4f4f2', line: '#ddd5da', hole: '#a39aa1', cap: '#2a2030' },
+  vang: { model: 'k520', name: 'Trắng vàng', base: '#f3f3f1', a1: '#e8b11f', a2: '#26231f', text: '#cf9a12', grip: '#f4f4f2', line: '#dcd8cf', hole: '#a39f95', cap: '#26231f' },
+  den: { model: 'k520', name: 'Đen', base: '#25233a', a1: '#35c4e8', a2: '#e9ebf2', text: '#35c4e8', grip: '#1f1f24', line: '#38383f', hole: '#5a5870', cap: '#111118' },
+  zznavy: { model: 'zz', name: 'Dark Navy', base: '#1b2140', a1: '#d4a84a', a2: '#3b4c86', text: '#d4a84a', grip: '#1c1c22', line: '#33333c', hole: '#55597a', cap: '#12152a' },
+  zzred: { model: 'zz', name: 'Kurenai', base: '#8c1823', a1: '#d9b45f', a2: '#1d2140', text: '#e2c27a', grip: '#1c1c22', line: '#33333c', hole: '#5e2a30', cap: '#2a0a0e' },
+  // Viktor Axelsen signature edition: greyish beige with green accents and "VA" on the shaft
+  zzva: { model: 'zz', name: 'VA Greyish Beige', label: 'ASTROX 100 ZZ VA', base: '#c8c1b2', a1: '#2e8a57', a2: '#a39b89', text: '#2e8a57', grip: '#ece8df', line: '#cfc8bb', hole: '#8a8476', cap: '#3a3933' },
+};
+const RACKET_IDS = Object.keys(RACKETS);
+const racketName = id => `${RACKET_MODELS[RACKETS[id].model].name} · ${RACKETS[id].name}`;
+// String bed: a fine white grid, see-through between the strings
+const stringTex = canvasTex(256, 256, (g, w, h) => {
+  g.strokeStyle = '#fff'; g.lineWidth = 2.2; // thick enough to keep its colour when shrunk to a few pixels
+  for (let x = 4; x < w; x += 10) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); }
+  for (let y = 4; y < h; y += 8) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+});
+const racketSkins = {};
+function racketSkin(id) {
+  if (racketSkins[id]) return racketSkins[id];
+  const P = RACKETS[id], M = RACKET_MODELS[P.model];
+  // Frame torus: u (canvas x) runs round the head with the T-joint at u = 0.25, v (canvas y) round the tube:
+  // the outer edge is the top and bottom rows, the two faces are at 1/4 and 3/4 of the height.
+  const frame = canvasTex(1024, 64, (g, w, h) => {
+    g.fillStyle = P.base; g.fillRect(0, 0, w, h);
+    g.fillStyle = P.hole;
+    for (let i = 0; i < 76; i++) { const x = (i + 0.5) * w / 76; g.fillRect(x - 1.5, 0, 3, 4); g.fillRect(x - 1.5, h - 4, 3, 4); }
+    // One swirl stroke, from d0 to d1 degrees away from the T-joint, mirrored on both sides and both faces
+    const stroke = (d0, d1, col, wd, yo) => {
+      g.fillStyle = col;
+      for (const s of [1, -1]) for (const face of [-1, 1]) for (let t = 0; t <= 1; t += 0.002) {
+        const x = (((0.25 + s * (d0 + (d1 - d0) * t) / 360) * w) % w + w) % w;
+        const y = h / 2 + face * h / 4 + face * (yo + Math.sin(t * Math.PI * 1.6) * 7 * s);
+        g.beginPath(); g.arc(x, y, wd * Math.sin(Math.PI * t) + 0.3, 0, Math.PI * 2); g.fill();
+      }
+    };
+    if (P.model === 'zz') {
+      // Lighter band over each shoulder, then a gold pinstripe along the middle of both faces, broken at the tip
+      for (const s of [1, -1]) for (const face of [-1, 1]) {
+        const y = h / 2 + face * h / 4;
+        for (let d = 18; d <= 78; d += 0.5) {
+          const x = (((0.25 + s * d / 360) * w) % w + w) % w;
+          g.globalAlpha = Math.sin(Math.PI * (d - 18) / 60); g.fillStyle = P.a2; g.fillRect(x - 1, y - 7, 2.5, 14);
+        }
+        g.globalAlpha = 1; g.fillStyle = P.a1;
+        for (let d = 6; d <= 168; d += 0.4) {
+          const x = (((0.25 + s * d / 360) * w) % w + w) % w;
+          g.fillRect(x - 0.8, y - 1, 1.8, 2);
+        }
+      }
+    } else {
+      stroke(22, 82, P.a2, 2.2, -5); stroke(30, 96, P.a1, 3.4, 3); stroke(118, 162, P.a1, 2.8, 0); stroke(128, 174, P.a2, 1.6, 6);
+    }
+  });
+  frame.wrapS = THREE.RepeatWrapping; // the isometric head's u runs 0.25 → 1.25
+  // Shaft cylinder: canvas top is the grip end. Text runs along the shaft on both sides.
+  const shaft = canvasTex(64, 512, (g, w, h) => {
+    g.fillStyle = P.base; g.fillRect(0, 0, w, h);
+    const label = (txt, y, col, font) => {
+      for (const cx of [w * 0.25, w * 0.75]) {
+        g.save(); g.translate(cx, y); g.rotate(Math.PI / 2);
+        g.fillStyle = col; g.font = font; g.textBaseline = 'middle'; g.fillText(txt, 0, 0); g.restore();
+      }
+    };
+    label(M.brand, 24, P.model === 'zz' ? P.a1 : P.a2, M.brandFont);
+    label(P.label || M.label, 210, P.text, M.labelFont);
+    g.fillStyle = P.a1; g.fillRect(0, 196, w, 3); g.fillRect(0, 392, w, 3);
+  });
+  // Grip: wrapped tape, a diagonal line every turn
+  const grip = canvasTex(64, 256, (g, w, h) => {
+    g.fillStyle = P.grip; g.fillRect(0, 0, w, h);
+    g.strokeStyle = P.line; g.lineWidth = 3;
+    for (let y = -32; y < h + 32; y += 16) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + 16); g.stroke(); }
+  });
+  return (racketSkins[id] = { frame, shaft, grip });
+}
+function customRacket(parent) {
+  const g = new THREE.Group(); g.visible = false; parent.add(g);
+  const mk = (geo, mat, y) => { const o = new THREE.Mesh(geo, mat); o.position.y = y; o.castShadow = true; g.add(o); return o; };
+  const mats = {
+    frame: new THREE.MeshStandardMaterial({ roughness: 0.85 }), // matte paint
+    shaft: new THREE.MeshStandardMaterial({ roughness: 0.55 }),
+    grip: new THREE.MeshStandardMaterial({ roughness: 0.95 }),
+    cap: new THREE.MeshStandardMaterial({ roughness: 0.5 }),
+  };
+  mk(new THREE.CylinderGeometry(0.0165, 0.0155, 0.2, 16), mats.grip, -0.1);
+  mk(new THREE.CylinderGeometry(0.018, 0.017, 0.014, 16), mats.cap, 0.003); // butt cap
+  mk(new THREE.CylinderGeometry(0.0105, 0.0058, 0.03, 12), mats.cap, -0.213); // cone from grip to shaft
+  mk(new THREE.CylinderGeometry(0.0055, 0.0055, 0.215, 12), mats.shaft, -0.335);
+  mk(new THREE.CylinderGeometry(0.0055, 0.011, 0.022, 12), mats.frame, -0.43); // T-joint
+  const logo = mk(new THREE.BoxGeometry(0.012, 0.012, 0.016), new THREE.MeshStandardMaterial({ color: 0x15161a, roughness: 0.4 }), -0.448);
+  logo.rotation.z = Math.PI / 4;
+  // Two head shapes: the K520's oval, and the 100ZZ's isometric head with its deeper frame (isoHead)
+  const oval = mk(new THREE.TorusGeometry(0.1, 0.0085, 10, 120), mats.frame, -0.55); oval.scale.y = 1.25;
+  const strMat = new THREE.MeshBasicMaterial({ map: stringTex, transparent: true, side: THREE.DoubleSide, depthWrite: false });
+  const ovalStr = new THREE.Mesh(new THREE.CircleGeometry(0.099, 48), strMat);
+  ovalStr.position.y = -0.55; ovalStr.scale.y = 1.25; g.add(ovalStr);
+  const iso = isoGeo || (isoGeo = isoHead()); // one geometry shared by every player
+  const isoFrame = mk(iso.frame, mats.frame, -0.55);
+  const isoStr = new THREE.Mesh(iso.strings, strMat); isoStr.position.y = -0.55; g.add(isoStr);
+  return { g, mats, strMat, heads: { k520: [oval, ovalStr], zz: [isoFrame, isoStr] } };
+}
+// Isometric head (Yonex 100ZZ): squarer than an oval, with a flat-ish tip, fairly straight sides and shoulders
+// that pinch in towards the T-joint. Centred at the origin, throat (T-joint) up at +y like the torus.
+// The frame tube is an ellipse deeper than it is wide, and its UVs follow the torus: u runs round the head with
+// the T-joint at u = 0.25, v runs round the tube with the outer edge at 0 and 1 and the faces at 1/4 and 3/4,
+// so the same frame textures fit both heads.
+let isoGeo = null;
+function isoHead() {
+  const N = 160, R = 12, halfW = 0.0072, halfD = 0.0105, a = 0.104;
+  // Outline, starting at the throat (+y) and going clockwise
+  const pts = [];
+  for (let i = 0; i < N; i++) {
+    const t = Math.PI / 2 - (i / N) * Math.PI * 2, c = Math.cos(t), s = Math.sin(t);
+    const tip = s < 0, b = tip ? 0.118 : 0.125, n = tip ? 3.2 : 2.2; // squarer towards the tip
+    const y = b * Math.sign(s) * Math.abs(s) ** (2 / n);
+    const x = a * Math.sign(c) * Math.abs(c) ** (2 / n) * (1 - 0.2 * Math.max(0, y / b) ** 2);
+    pts.push(new THREE.Vector2(x, y));
+  }
+  const len = [0];
+  for (let i = 1; i <= N; i++) len.push(len[i - 1] + pts[i % N].distanceTo(pts[i - 1]));
+  const pos = [], nor = [], uv = [], idx = [];
+  for (let i = 0; i <= N; i++) {
+    const p = pts[i % N], tg = pts[(i + 1) % N].clone().sub(pts[(i + N - 1) % N]).normalize();
+    let ox = tg.y, oy = -tg.x; if (ox * p.x + oy * p.y < 0) { ox = -ox; oy = -oy; } // outward, in the head's plane
+    for (let j = 0; j <= R; j++) {
+      const q = (j / R) * Math.PI * 2, c = Math.cos(q), s = Math.sin(q);
+      pos.push(p.x + ox * c * halfW, p.y + oy * c * halfW, s * halfD);
+      const nx = ox * c / halfW, ny = oy * c / halfW, nz = s / halfD, l = Math.hypot(nx, ny, nz);
+      nor.push(nx / l, ny / l, nz / l);
+      uv.push(0.25 + len[i] / len[N], j / R); // runs 0.25 → 1.25; the frame texture repeats round
+    }
+  }
+  for (let i = 0; i < N; i++) for (let j = 0; j < R; j++) {
+    const A = i * (R + 1) + j, B = A + R + 1;
+    idx.push(A, A + 1, B, B, A + 1, B + 1); // counter-clockwise seen from outside the tube
+  }
+  const frame = new THREE.BufferGeometry();
+  frame.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  frame.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  frame.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  frame.setIndex(idx);
+  // String bed: the same outline pulled in to sit just under the frame, the grid stretched over its bounding box
+  const strings = new THREE.ShapeGeometry(new THREE.Shape(pts.map(p => p.clone().multiplyScalar(0.96))), 1);
+  strings.computeBoundingBox();
+  const bb = strings.boundingBox, su = strings.attributes.uv, sp = strings.attributes.position;
+  for (let i = 0; i < su.count; i++) su.setXY(i, (sp.getX(i) - bb.min.x) / (bb.max.x - bb.min.x), (sp.getY(i) - bb.min.y) / (bb.max.y - bb.min.y));
+  return { frame, strings };
+}
+const SKIRT_DEF = 0xf2f2ee, STR_DEF = 0xf4f4f2; // white skirt and white strings for looks saved before these existed
 function applyLook(f, look) {
-  f.mats.skin.color.setHex(look.skin); f.mats.top.color.setHex(look.shirt); f.mats.bottom.color.setHex(look.shorts);
+  f.mats.skin.color.setHex(look.skin); f.mats.top.color.setHex(look.shirt);
+  f.mats.bottom.color.setHex(look.bt === 'skirt' ? look.skirt : look.shorts);
   f.mats.hairM.color.setHex(look.hair); f.mats.frame.color.setHex(look.racket);
   f.hair.cap.visible = look.hs !== 'bald'; f.hair.tail.visible = look.hs === 'tail'; f.hair.band.visible = look.hs === 'band';
+  const skirt = look.bt === 'skirt';
+  f.wear.skirt.visible = skirt; for (const o of f.wear.shortLegs) o.visible = !skirt;
+  for (const mt of f.racket.strings) mt.color.setHex(look.str); // tints the white string grid
+  // Left-handed: mirror the whole body, so the racket arm, poses and swings all switch sides;
+  // the racket itself is mirrored back so the print on it still reads the right way round.
+  f.hand = look.hand === 'L' ? -1 : 1;
+  f.g.scale.x = f.hand; f.racket.plain.scale.x = f.hand; f.racket.custom.g.scale.x = f.hand;
+  const k = look.rk === 'custom', K = f.racket.custom;
+  f.racket.plain.visible = !k; K.g.visible = k;
+  if (k) {
+    const s = racketSkin(look.rkv), P = RACKETS[look.rkv];
+    K.mats.frame.map = s.frame; K.mats.shaft.map = s.shaft; K.mats.grip.map = s.grip; K.mats.cap.color.set(P.cap);
+    K.mats.frame.roughness = RACKET_MODELS[P.model].gloss;
+    for (const [model, meshes] of Object.entries(K.heads)) for (const o of meshes) o.visible = model === P.model;
+    for (const mt of [K.mats.frame, K.mats.shaft, K.mats.grip]) mt.needsUpdate = true;
+  }
 }
-// A look is valid only if every colour is a 24-bit number and the hair style is known
+// A look is valid only if every colour is a 24-bit number and the hair style is known.
+// bt (shorts or skirt) and the skirt colour came later: missing in an older saved look means shorts and a white skirt.
 function cleanLook(o) {
   if (!o || typeof o !== 'object') return null;
   const c = v => Number.isInteger(v) && v >= 0 && v <= 0xffffff;
   return ['shirt', 'shorts', 'skin', 'hair', 'racket'].every(k => c(o[k])) && HAIR_STYLES.includes(o.hs)
-    ? { shirt: o.shirt, shorts: o.shorts, skin: o.skin, hair: o.hair, racket: o.racket, hs: o.hs } : null;
+    ? { shirt: o.shirt, shorts: o.shorts, skirt: c(o.skirt) ? o.skirt : SKIRT_DEF, skin: o.skin, hair: o.hair, racket: o.racket, hs: o.hs, bt: o.bt === 'skirt' ? 'skirt' : 'shorts',
+        // 'k520' is what this switch was called before it became 'custom'
+        rk: o.rk === 'custom' || o.rk === 'k520' ? 'custom' : 'plain', rkv: RACKET_IDS.includes(o.rkv) ? o.rkv : 'xanh', str: c(o.str) ? o.str : STR_DEF,
+        hand: o.hand === 'L' ? 'L' : 'R' } : null;
 }
 
 // Body poses. Right (racket) arm: sx/sz shoulder, el elbow, wr wrist. Left arm: lx/lz shoulder, le elbow.
@@ -690,14 +881,14 @@ const SWK = ['over', 'under', 'side'];
 // Swing timeline (s): ready → windup (held while armed) → contact → follow-through → ready
 const SW_W = 0.08, SW_C = 0.14, SW_F = 0.24, SW_END = 0.5;
 
-const baseLook = shirt => ({ shirt, shorts: 0x1f2a36, skin: 0xc98f6b, hair: 0x1d1a17, racket: shirt, hs: 'short' });
+const baseLook = shirt => ({ shirt, shorts: 0x1f2a36, skirt: 0xf2f2ee, skin: 0xc98f6b, hair: 0x1d1a17, racket: shirt, hs: 'short', bt: 'shorts', rk: 'plain', rkv: 'xanh', str: 0xf4f4f2, hand: 'R' });
 function makeAthlete(idx, look) {
   const f = figure(look), side = sideT(team(idx));
   if (side < 0) f.g.rotation.y = Math.PI;
   scene.add(f.g);
   return Object.assign(f, { idx, side, x: 0, z: side * 3.5, vx: 0, vz: 0, y: 0, vy: 0, landT: 0, sta: 1, tired: false, run: false,
     swingT: -1, swingK: 'over', armed: null, armT: 0, cool: 0, phase: 0, plan: null, delay: 0, leave: false,
-    look, pose: { ...READY }, leg: { th: [0, 0], kn: [0, 0] } });
+    look, pose: { ...READY }, leg: { th: [0, 0], kn: [0, 0], an: [0, 0] } });
 }
 // Near team in orange shades, far team in blue shades; each partner a slightly different tone. Humans can restyle theirs.
 const DEF_LOOKS = [0xf0643a, 0x3f9ef0, 0xe8a23a, 0x5b6ff0].map(baseLook);
@@ -725,7 +916,8 @@ function setTag(a, text) {
   t.tex.needsUpdate = true;
 }
 const ath = idx => ATH[idx];
-const hitCenter = a => ({ x: a.x + a.side * 0.35, z: a.z - a.side * 0.28 });
+// The racket reaches out on the racket-hand side: a.hand is 1 for right-handed, -1 for left-handed (applyLook)
+const hitCenter = a => ({ x: a.x + a.side * a.hand * 0.35, z: a.z - a.side * 0.28 });
 
 const ease = u => u * u * (3 - 2 * u);
 const basePose = {}, swingPose = {};
@@ -761,10 +953,17 @@ function animateAthlete(a, dt, idx) {
   // Legs: athletic crouch in a rally, stride while moving, tuck in the air (scissor kick on an overhead jump)
   const sp = Math.hypot(a.vx, a.vz), air = a.y > 0.005, run = Math.min(1, sp / 3.5);
   a.phase += dt * (5 + sp * 1.8);
-  let th, kn;
+  let th, kn, tuck = 0;
   if (air) {
+    // How far through the jump we are (0 = take-off, 1 = touch-down), from the speed and height alone so it
+    // also works for remote players: take-off speed v0 = √(vy² + 2·G·y)
+    const v0 = Math.sqrt(a.vy * a.vy + 2 * G * a.y) || 1, u = clamp((1 - a.vy / v0) / 2, 0, 1);
+    // Legs push off straight, knees draw up to a tuck around the top, then reach down again for the landing
+    tuck = u < 0.42 ? ease(u / 0.42) : 1 - 0.8 * ease((u - 0.42) / 0.58);
     const scissor = a.swingK === 'over' && a.swingT >= 0;
-    th = scissor ? [0.85, -0.35] : [0.7, 0.2]; kn = scissor ? [-0.9, -0.7] : [-1.1, -0.6];
+    // Overhead jump: front knee driven up, back heel kicked towards the seat (scissor); otherwise both knees tucked
+    const T = scissor ? [1.05, -0.25] : [1.15, 0.95], K = scissor ? [-1.5, -1.95] : [-2.0, -1.75];
+    th = T.map(v => v * tuck); kn = K.map(v => v * tuck);
   } else {
     const crouch = (S.state === 'rally' ? 1 : 0.4) * (1 - run * 0.5) + (a.landT > 0 ? a.landT / LAND_T : 0);
     th = [0, 1].map(i => 0.32 * crouch + Math.sin(a.phase + i * Math.PI) * 0.6 * run);
@@ -774,20 +973,25 @@ function animateAthlete(a, dt, idx) {
   let ext = 0;
   a.legs.forEach((l, i) => {
     const t0 = a.leg.th[i] += (th[i] - a.leg.th[i]) * kl, k0 = a.leg.kn[i] += (kn[i] - a.leg.kn[i]) * kl;
-    l.hip.rotation.x = t0; l.knee.rotation.x = k0; l.ankle.rotation.x = -(t0 + k0) * (air ? 0.4 : 1);
+    // Feet flat on the ground; in the air the toes point down as the legs tuck
+    const an = air ? -(t0 + k0) * 0.5 - 0.25 - 0.45 * tuck : -(t0 + k0);
+    l.ankle.rotation.x = a.leg.an[i] += (an - a.leg.an[i]) * (air ? kl : 1 - Math.exp(-dt * 40));
+    l.hip.rotation.x = t0; l.knee.rotation.x = k0;
     ext = Math.max(ext, THIGH * Math.cos(t0) + SHIN * Math.cos(t0 + k0));
   });
-  a.pelvis.position.y = HIP_DROP + FOOT + (air ? 0.82 : ext);
+  // In the air the hips ride at standing height and the feet lift up under them, so the tuck shows
+  a.pelvis.position.y = HIP_DROP + FOOT + (air ? THIGH + SHIN - 0.03 : ext);
 
   // Torso leans into the run, arms follow the pose, left arm pumps while running
   const lvx = a.vx * a.side, lvz = a.vz * a.side;
-  a.torso.rotation.set(q.lean + lvz * 0.035 - (a.run && sp > 4 ? 0.12 : 0), q.tw, -lvx * 0.03);
+  // (sideways lean and head turn are in world terms, so they flip back for a mirrored left-hander)
+  a.torso.rotation.set(q.lean + lvz * 0.035 - (a.run && sp > 4 ? 0.12 : 0), q.tw, -lvx * 0.03 * a.hand);
   a.R.sh.rotation.set(q.sx, 0, q.sz); a.R.el.rotation.x = q.el; a.R.wr.rotation.x = q.wr;
   a.L.sh.rotation.set(q.lx + (a.swingT < 0 ? Math.sin(a.phase) * 0.45 * run : 0), 0, q.lz); a.L.el.rotation.x = q.le;
 
   // Eyes on the shuttle
   const p = shuttle.p, dx = (p.x - a.x) * a.side, dz = (p.z - a.z) * a.side, dy = p.y - a.y - 1.6;
-  a.neck.rotation.set(clamp(Math.atan2(dy, Math.hypot(dx, dz)) - q.lean, -0.5, 0.9), clamp(Math.atan2(-dx, -dz) - q.tw, -1.1, 1.1), 0);
+  a.neck.rotation.set(clamp(Math.atan2(dy, Math.hypot(dx, dz)) - q.lean, -0.5, 0.9), clamp(a.hand * Math.atan2(-dx, -dz) - q.tw, -1.1, 1.1), 0);
   a.g.position.set(a.x, a.y, a.z);
 }
 function stepBody(a, dt) {
@@ -978,7 +1182,7 @@ function setupServe() {
 }
 function holdShuttle() {
   const sa = ath(S.server);
-  shuttle.p = { x: sa.x + sa.side * 0.32, y: 1.0, z: sa.z - sa.side * 0.42 }; shuttle.v = { x: 0, y: 0, z: 0 };
+  shuttle.p = { x: sa.x + sa.side * sa.hand * 0.32, y: 1.0, z: sa.z - sa.side * 0.42 }; shuttle.v = { x: 0, y: 0, z: 0 };
 }
 
 const opponents = t => members(1 - t).map(ath);
@@ -1048,7 +1252,7 @@ function reachOf(idx, path, top) {
   const a = ath(idx), D = DIFF[S.diff], sp = isHuman(idx) ? HUMAN_SP : D.speed, re = isHuman(idx) ? HUMAN_REACT : D.react;
   for (const pt of path) {
     if (pt.t < re || Math.sign(pt.z) !== a.side || Math.abs(pt.z) < 0.25 || pt.y > top || pt.y < 0.3) continue;
-    const sx = pt.x - a.side * 0.35, sz = pt.z + a.side * 0.28;
+    const sx = pt.x - a.side * a.hand * 0.35, sz = pt.z + a.side * 0.28;
     if (Math.hypot(sx - a.x, sz - a.z) / sp * 1.15 + re <= pt.t) return { x: sx, z: sz, t: pt.t, y: pt.y };
   }
   return null;
@@ -1101,7 +1305,7 @@ function planRally(res) {
     const wantJump = !S.isServe && Math.random() < D.smash * 0.8;
     const r = reachOf(i, res.path, wantJump ? 3.05 : 2.55);
     a.plan = r ? { x: r.x, z: r.z, jumpAt: wantJump && r.y > 2.2 ? r.t - JUMP_V / G : null }
-      : { x: res.x - a.side * 0.35, z: res.z + a.side * 0.28, jumpAt: null };
+      : { x: res.x - a.side * a.hand * 0.35, z: res.z + a.side * 0.28, jumpAt: null };
   }
 }
 function aiShot(idx) {
@@ -1330,10 +1534,20 @@ showTab(savedTab ? savedTab === 'lan' : !!window.SAN7_LAN);
 /* ---------- character customizer ---------- */
 const LOOK_OPTS = [
   { k: 'shirt', label: 'Áo', colors: [0xf0643a, 0x3f9ef0, 0xe8a23a, 0x5b6ff0, 0x2fbf71, 0xe5484d, 0xc056d8, 0x14b8a6, 0xf2f2ee, 0x2b2f36] },
-  { k: 'shorts', label: 'Quần', colors: [0x1f2a36, 0x2b2f36, 0xf2f2ee, 0x3f5d8a, 0x7a3d2c, 0x3a6b45] },
+  // A `pick` row is a two-way switch; a row with `when` only shows while that switch is on that value.
+  // Shorts and skirt each keep their own colour, and so do the plain racket and the custom one.
+  { pick: 'bt', label: 'Quần hay váy', opts: [['shorts', 'Quần'], ['skirt', 'Váy']] },
+  { k: 'shorts', when: ['bt', 'shorts'], label: 'Màu quần', colors: [0x1f2a36, 0x2b2f36, 0xf2f2ee, 0x3f5d8a, 0x7a3d2c, 0x3a6b45] },
+  { k: 'skirt', when: ['bt', 'skirt'], label: 'Màu váy', colors: [0xf2f2ee, 0xf4a6c0, 0xe5484d, 0xc056d8, 0x3f9ef0, 0x14b8a6, 0xffb547, 0x2b2f36] },
   { k: 'skin', label: 'Da', colors: [0xf1d0b5, 0xe0ac8a, 0xc98f6b, 0xa56b46, 0x6f4429] },
   { k: 'hair', label: 'Tóc', colors: [0x1d1a17, 0x4a2f1d, 0x8a5a2b, 0xd8b45a, 0xb23a2e, 0x9aa0a6] },
-  { k: 'racket', label: 'Vợt', colors: [0xf0643a, 0x3f9ef0, 0xe5484d, 0x2fbf71, 0xffb547, 0xf2f2ee, 0x2b2f36] },
+  { pick: 'hand', label: 'Tay cầm vợt', opts: [['R', 'Tay phải'], ['L', 'Tay trái']] },
+  { pick: 'rk', label: 'Kiểu vợt', opts: [['plain', 'Thường', 'Một màu'], ['custom', 'Custom', 'K520 Pro · 100ZZ']] },
+  { k: 'racket', when: ['rk', 'plain'], label: 'Màu vợt', colors: [0xf0643a, 0x3f9ef0, 0xe5484d, 0x2fbf71, 0xffb547, 0xf2f2ee, 0x2b2f36] },
+  { k: 'rkv', when: ['rk', 'custom'], label: 'Phiên bản', colors: RACKET_IDS, name: racketName,
+    swatch: v => `linear-gradient(135deg, ${RACKETS[v].base} 0 52%, ${RACKETS[v].a1} 52% 72%, ${RACKETS[v].a2} 72%)` },
+  // String colours you can actually get strung: white, yellow, lime, orange, red, pink, blue, black
+  { k: 'str', label: 'Màu lưới', colors: [0xf4f4f2, 0xf2e14a, 0x9be33a, 0xff8a2a, 0xe5484d, 0xf28cb1, 0x3f9ef0, 0x2b2f36] },
 ];
 const LOOK_KEY = 'san7-look';
 let myLook = null;
@@ -1343,12 +1557,15 @@ const hex = c => '#' + c.toString(16).padStart(6, '0');
 function buildLookOpts() {
   const box = $('lookOpts'); box.innerHTML = '';
   for (const o of LOOK_OPTS) {
+    if (o.when && myLook[o.when[0]] !== o.when[1]) continue;
+    if (o.pick) { box.append(lookPicker(o)); continue; }
     const row = document.createElement('div'); row.className = 'opt';
     const lb = document.createElement('span'); lb.className = 'label'; lb.textContent = o.label;
     const sws = document.createElement('div'); sws.className = 'sws';
     o.colors.forEach((c, i) => {
-      const b = document.createElement('button'); b.className = 'swatch'; b.style.background = hex(c);
-      b.setAttribute('aria-label', `${o.label} màu ${i + 1}`); b.setAttribute('aria-pressed', String(myLook[o.k] === c));
+      const b = document.createElement('button'); b.className = 'swatch'; b.style.background = o.swatch ? o.swatch(c) : hex(c);
+      if (o.name) b.title = o.name(c);
+      b.setAttribute('aria-label', o.name ? `${o.label} ${o.name(c)}` : `${o.label} màu ${i + 1}`); b.setAttribute('aria-pressed', String(myLook[o.k] === c));
       b.addEventListener('click', () => setLook({ ...myLook, [o.k]: c }));
       sws.append(b);
     });
@@ -1356,7 +1573,26 @@ function buildLookOpts() {
   }
   for (const el of document.querySelectorAll('input[name="hs"]')) el.checked = el.value === myLook.hs;
 }
+// Two-way switch (Quần / Váy, Thường / Custom), placed right above the row it switches
+function lookPicker(o) {
+  const row = document.createElement('div'); row.className = 'opt';
+  const lb = document.createElement('span'); lb.className = 'label'; lb.textContent = o.label;
+  const seg = document.createElement('div'); seg.className = 'seg two'; seg.setAttribute('role', 'radiogroup');
+  for (const [v, t, sub] of o.opts) {
+    const id = `${o.pick}-${v}`;
+    const inp = document.createElement('input'); inp.type = 'radio'; inp.name = o.pick; inp.id = id; inp.value = v; inp.checked = myLook[o.pick] === v;
+    // The panel is rebuilt on every change, so put keyboard focus back on the new radio
+    inp.addEventListener('change', () => { setLook({ ...myLook, [o.pick]: v }); $(id).focus(); });
+    const l = document.createElement('label'); l.htmlFor = id; const b = document.createElement('b'); b.textContent = t; l.append(b);
+    if (sub) { const s = document.createElement('span'); s.textContent = sub; l.append(s); }
+    seg.append(inp, l);
+  }
+  row.append(lb, seg);
+  return row;
+}
 function setLook(l) {
+  // Changing the racket zooms the preview in on it for a few seconds
+  if (['rk', 'rkv', 'racket', 'str'].some(k => l[k] !== myLook[k])) pv.zoomUntil = clock + 3;
   myLook = l;
   try { localStorage.setItem(LOOK_KEY, JSON.stringify(l)); } catch (e) {}
   buildLookOpts(); applyLook(pv.fig, l); updateLooks();
@@ -1364,19 +1600,23 @@ function setLook(l) {
 for (const el of document.querySelectorAll('input[name="hs"]')) el.addEventListener('change', () => setLook({ ...myLook, hs: el.value }));
 const pick = a => a[Math.floor(Math.random() * a.length)];
 $('btnRandom').addEventListener('click', () => {
-  const l = { hs: pick(HAIR_STYLES) }; for (const o of LOOK_OPTS) l[o.k] = pick(o.colors); setLook(l);
+  const l = { hs: pick(HAIR_STYLES) };
+  for (const o of LOOK_OPTS) if (o.pick) l[o.pick] = pick(o.opts)[0]; else l[o.k] = pick(o.colors);
+  setLook(l);
 });
 $('btnCustom').addEventListener('click', () => $('custom').classList.add('open'));
 $('btnCustomDone').addEventListener('click', () => $('custom').classList.remove('open'));
 // Which look each player wears: yours vs the computer; on LAN whatever each player picked
 function lookOf(i) {
   if (S.mode === 'ai') return i === 0 ? myLook : DEF_LOOKS[i];
+  // Your own player always wears exactly what you picked here, even if the server drops a field it does not know yet
+  if (i === me) return myLook;
   return (S.roster[i] && S.looks[i]) || DEF_LOOKS[i];
 }
 function updateLooks() { ATH.forEach((a, i) => { const l = lookOf(i); if (a.look !== l) { a.look = l; applyLook(a, l); } }); }
 
 // Turntable preview of your player, drawn by a small second renderer while the menu is open
-const pv = { canvas: $('preview'), w: 0, h: 0 };
+const pv = { canvas: $('preview'), w: 0, h: 0, zoomUntil: 0, zoom: 0 };
 pv.renderer = new THREE.WebGLRenderer({ canvas: pv.canvas, antialias: true, alpha: true });
 pv.renderer.outputEncoding = THREE.sRGBEncoding; pv.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 pv.scene = new THREE.Scene();
@@ -1384,6 +1624,7 @@ pv.scene.add(new THREE.HemisphereLight(0xe6eeff, 0x40301f, 0.85));
 const pvSun = new THREE.DirectionalLight(0xfff4e4, 0.9); pvSun.position.set(2, 4, 4); pv.scene.add(pvSun);
 pv.cam = new THREE.PerspectiveCamera(28, 1, 0.1, 20); pv.cam.position.set(0, 1.15, 5.2); pv.cam.lookAt(0, 1.05, 0);
 pv.fig = figure(myLook); pv.scene.add(pv.fig.g);
+const pvTmp = new THREE.Vector3();
 { // static ready stance
   const f = pv.fig, q = READY;
   f.R.sh.rotation.set(q.sx, 0, q.sz); f.R.el.rotation.x = q.el; f.R.wr.rotation.x = q.wr;
@@ -1397,13 +1638,28 @@ function renderPreview() {
   const w = pv.canvas.clientWidth, h = pv.canvas.clientHeight;
   if (w !== pv.w || h !== pv.h) { pv.w = w; pv.h = h; pv.renderer.setSize(w, h, false); pv.cam.aspect = w / h; pv.cam.updateProjectionMatrix(); }
   pv.fig.g.rotation.y = Math.PI + (reduceMotion ? 0.5 : Math.sin(clock * 0.6) * 0.9);
+  // Ease between the full-body view and a close-up of the racket head
+  pv.zoom += ((clock < pv.zoomUntil ? 1 : 0) - pv.zoom) * (reduceMotion ? 1 : 0.08);
+  pv.fig.g.updateMatrixWorld(true);
+  const t = pv.fig.racket.center.getWorldPosition(pvTmp), z = pv.zoom;
+  pv.cam.position.set(t.x * z, 1.15 + (t.y + 0.05 - 1.15) * z, 5.2 + (t.z + 1.25 - 5.2) * z);
+  pv.cam.lookAt(t.x * z, 1.05 + (t.y - 1.05) * z, t.z * z);
   pv.renderer.render(pv.scene, pv.cam);
 }
 buildLookOpts(); updateLooks();
 
 // LAN only: who is on each court and how many people have the game open, polled every 2 s
 let roomsT = 0, rooms = [];
-const visitorId = Math.random().toString(36).slice(2, 12);
+// One id per browser, kept across reloads, so reloading or opening a second tab does not count you twice
+const visitorId = (() => {
+  const KEY = 'san7-visitor';
+  try { const v = localStorage.getItem(KEY); if (v) return v; } catch (e) {}
+  const v = Math.random().toString(36).slice(2, 12);
+  try { localStorage.setItem(KEY, v); } catch (e) {}
+  return v;
+})();
+// Closing the tab: tell the server right away instead of waiting for the 8 s timeout
+addEventListener('pagehide', () => { if (window.SAN7_LAN) try { navigator.sendBeacon('/rooms?bye=' + visitorId); } catch (e) {} });
 function refreshRooms() {
   if (!window.SAN7_LAN) return;
   fetch('/rooms?id=' + visitorId).then(r => r.json()).then(data => {
@@ -1512,6 +1768,8 @@ function lanEnd(msg) {
   backToMenu();
   $('menuNote').textContent = msg; $('menuNote').hidden = !msg;
   if (msg) showTab(true);
+  // The server frees the seat once it gets our close frame; fetch the courts again right after that
+  setTimeout(refreshRooms, 300);
 }
 function onNet(m) {
   if (m.t === 'role') {
