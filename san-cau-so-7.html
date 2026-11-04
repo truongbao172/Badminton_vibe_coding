@@ -772,7 +772,8 @@ function teamName(t) {
   return S.n === 4 ? 'Đội kia' : 'Đối thủ';
 }
 // LAN players' sticks, each in that player's own screen frame (far team sees the court flipped)
-const remoteIn = [0, 1, 2, 3].map(() => ({ x: 0, z: 0, run: false }));
+// pos: the guest has sent its own position (px, pz, vx, vz, received at time `at`), see update()
+const remoteIn = [0, 1, 2, 3].map(() => ({ x: 0, z: 0, run: false, pos: false, px: 0, pz: 0, vx: 0, vz: 0, at: 0 }));
 function worldInput(idx) {
   const r = idx === me ? input : remoteIn[idx];
   return team(idx) ? { x: -r.x, z: -r.z, run: r.run } : r;
@@ -1079,7 +1080,7 @@ function showResult(ev) {
 }
 function newMatch() {
   Object.assign(S, { score: [0, 0], games: [0, 0], server: 0, right: [0, 1], gameNo: 1, history: [], best: 0, gameOver: false, matchOver: false, paused: false });
-  for (const r of remoteIn) { r.x = r.z = 0; r.run = false; }
+  for (const r of remoteIn) { r.x = r.z = 0; r.run = false; r.pos = false; }
   for (const a of ATH) { a.sta = 1; a.tired = false; a.swingT = -1; }
   $('menu').hidden = $('result').hidden = $('pause').hidden = $('lobby').hidden = true;
   if (S.mode === 'host') send({ t: 'meta', started: true });
@@ -1213,7 +1214,7 @@ $('optName').addEventListener('change', () => { try { localStorage.setItem(NAME_
 for (const el of document.querySelectorAll('input[name="court"]')) el.addEventListener('change', refreshRooms);
 
 /* ---------- LAN: host runs the match, guests send input and render snapshots ---------- */
-let ws = null, lastSent = 0, lastIn = '', hudKey = '';
+let ws = null, lastSent = 0, lastIn = '', lastInAt = 0, hudKey = '';
 function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
 function showLobby(title, text, urls) {
   $('lobbyTitle').textContent = title; $('lobbyText').textContent = text; $('lobbyText').hidden = !text;
@@ -1296,7 +1297,13 @@ function onNet(m) {
   else if (S.mode === 'host') {
     const i = m.from | 0;
     if (i === me || i >= S.n || !isHuman(i)) return;
-    if (m.t === 'in') { const r = remoteIn[i]; r.x = clamp(+m.x || 0, -1, 1); r.z = clamp(+m.z || 0, -1, 1); r.run = !!m.r; }
+    if (m.t === 'in') {
+      const r = remoteIn[i]; r.x = clamp(+m.x || 0, -1, 1); r.z = clamp(+m.z || 0, -1, 1); r.run = !!m.r;
+      if (Number.isFinite(m.px) && Number.isFinite(m.pz)) {
+        const vmax = RUN_SP * 1.2;
+        Object.assign(r, { pos: true, px: m.px, pz: m.pz, vx: clamp(+m.vx || 0, -vmax, vmax), vz: clamp(+m.vz || 0, -vmax, vmax), at: performance.now() });
+      }
+    }
     else if (m.t === 'act') action(m.k === 'soft' || m.k === 'jump' ? m.k : 'strong', i);
     else if (m.t === 'pause') setPaused(!!m.on);
     else if (m.t === 'again' && S.state === 'over') newMatch();
@@ -1311,7 +1318,7 @@ function syncHumans(prevNames = S.names) {
   for (let i = 0; i < 4; i++) {
     const on = i === me || (i < S.n && !!S.roster[i]);
     if (on === S.human[i]) continue;
-    S.human[i] = on; Object.assign(remoteIn[i], { x: 0, z: 0, run: false });
+    S.human[i] = on; Object.assign(remoteIn[i], { x: 0, z: 0, run: false, pos: false });
     const a = ath(i); a.armed = null; a.plan = null;
     if (live) emit({ k: 'toast', big: on ? `${S.names[i] || 'Người chơi'} vào sân` : `${prevNames[i] || 'Một người'} đã rời sân`, small: on ? '' : 'Máy đánh thay vị trí đó', dur: 1.6 });
     if (live && !on && S.state === 'serve' && S.server === i) S.timer = 1.1;
@@ -1332,9 +1339,11 @@ function applySnap(m) {
   if (!$('lobby').hidden && m.s !== 'menu') { $('lobby').hidden = true; toast('Vào trận', `Sân ${S.court + 1} · ${team(me) ? 'bạn đứng sân xa' : 'bạn đứng sân gần'}`, 1.6); }
   S.state = m.s; S.score = m.sc; S.games = m.g; S.server = m.sv; S.gameNo = m.gn; S.rally = m.ra; S.human = m.hu.map(Boolean);
   m.a.forEach((d, i) => {
-    const a = ath(i); a.x = d[0]; a.z = d[1]; a.vx = d[2]; a.vz = d[3];
+    const a = ath(i);
+    // During a rally this machine moves its own player (guestTick); the host only places it between points
+    if (i !== me || (m.s !== 'rally' && m.s !== 'point')) { a.x = d[0]; a.z = d[1]; a.vx = d[2]; a.vz = d[3]; a.run = !!d[10]; }
     if (a.y > 0 && d[5] <= 0) a.landT = LAND_T;
-    a.y = d[5]; a.vy = d[6]; a.swingK = SWK[d[7]] || 'over'; a.armed = d[8] ? 'strong' : null; a.sta = d[9]; a.run = !!d[10];
+    a.y = d[5]; a.vy = d[6]; a.swingK = SWK[d[7]] || 'over'; a.armed = d[8] ? 'strong' : null; a.sta = d[9];
     if (d[4] >= 0 && (a.swingT < 0 || Math.abs(a.swingT - d[4]) > 0.1)) a.swingT = d[4];
   });
   const h = m.sh;
@@ -1347,8 +1356,19 @@ function applySnap(m) {
 }
 function guestTick(dt) {
   readInput();
-  const k = input.x.toFixed(2) + ',' + input.z.toFixed(2) + ',' + input.run;
-  if (k !== lastIn) { lastIn = k; send({ t: 'in', x: +input.x.toFixed(2), z: +input.z.toFixed(2), r: input.run ? 1 : 0 }); }
+  // Move our own player right here, same rules as the host, so it reacts without waiting on the network
+  const a = ath(me), playing = (S.state === 'rally' || S.state === 'point') && !S.paused;
+  if (playing) {
+    if (a.sta <= 0) a.tired = true; else if (a.sta > 0.3) a.tired = false;
+    const w = worldInput(me);
+    a.run = w.run && !a.tired && Math.hypot(w.x, w.z) > 0.2;
+    moveAthlete(a, w.x, w.z, a.run ? RUN_SP : WALK_SP, dt, false);
+  }
+  // Report stick and position to the host whenever they change, at most about 70 times a second
+  const msg = { t: 'in', x: +input.x.toFixed(2), z: +input.z.toFixed(2), r: input.run ? 1 : 0 };
+  if (playing) Object.assign(msg, { px: r3(a.x), pz: r3(a.z), vx: r3(a.vx), vz: r3(a.vz) });
+  const k = [msg.x, msg.z, msg.r, msg.px, msg.pz].join(','), now = performance.now();
+  if (k !== lastIn && now - lastInAt >= 14) { lastIn = k; lastInAt = now; send(msg); }
   for (const a of ATH) if (a.landT > 0) a.landT -= dt;
   // Extrapolate the shuttle between snapshots so flight stays smooth
   if (shuttle.mode === 'fly' && !S.paused) {
@@ -1378,9 +1398,18 @@ function update(dt) {
     const a = ath(i);
     stepBody(a, dt);
     if (isHuman(i)) {
-      const w = worldInput(i);
+      const w = worldInput(i), r = i === me ? null : remoteIn[i];
       a.run = playing && w.run && !a.tired && Math.hypot(w.x, w.z) > 0.2;
-      moveAthlete(a, playing ? w.x : 0, playing ? w.z : 0, a.run ? RUN_SP : WALK_SP, dt, false);
+      // Outside a rally the host places everyone (serve positions); the guest's next position report starts fresh
+      if (r && !playing) r.pos = false;
+      if (r && r.pos) {
+        // A guest moves its own player on its machine and reports the position. Between reports, carry on
+        // along its velocity (at most 0.1 s) and keep it inside that player's half of the court.
+        const age = Math.min(0.1, (performance.now() - r.at) / 1000);
+        a.vx = r.vx; a.vz = r.vz;
+        a.x = clamp(r.px + r.vx * age, -3.4, 3.4);
+        a.z = a.side > 0 ? clamp(r.pz + r.vz * age, 0.35, 8.2) : clamp(r.pz + r.vz * age, -8.2, -0.35);
+      } else moveAthlete(a, playing ? w.x : 0, playing ? w.z : 0, a.run ? RUN_SP : WALK_SP, dt, false);
       continue;
     }
     a.run = false;
