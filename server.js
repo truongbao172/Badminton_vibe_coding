@@ -43,6 +43,9 @@ function page() {
 const lanIPs = () => Object.values(os.networkInterfaces()).flat()
   .filter(i => i && (i.family === 'IPv4' || i.family === 4) && !i.internal)
   .map(i => i.address);
+// Link mời bạn: trên Render (hoặc khi đặt PUBLIC_URL) dùng địa chỉ công khai; chạy LAN thì dùng IP trong mạng.
+const PUBLIC_URL = (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/+$/, '');
+const inviteURLs = () => PUBLIC_URL ? [PUBLIC_URL] : lanIPs().map(ip => `http://${ip}:${PORT}`);
 
 // Mỗi sân có 4 vị trí: 0 và 2 ở sân gần, 1 và 3 ở sân xa (đánh đơn chỉ dùng 0 và 1).
 // Chủ sân (máy chạy trận đấu) có thể đứng ở bất kỳ vị trí nào.
@@ -98,6 +101,8 @@ function roster(r) {
 class Peer {
   constructor(sock) {
     this.sock = sock; this.buf = Buffer.alloc(0); this.frag = null; this.open = true; this.room = null; this.seat = -1; this.court = 0; this.name = '';
+    // Ping mỗi 25 giây để proxy (Render, Nginx…) không cắt kết nối khi đang ngồi chờ trong phòng.
+    this.ping = setInterval(() => { if (this.open) this.sock.write(wsFrame(9, Buffer.alloc(0))); }, 25000);
     sock.on('data', d => this.onData(d));
     sock.on('close', () => this.onClose());
     sock.on('error', () => sock.destroy());
@@ -156,6 +161,7 @@ class Peer {
   }
   onClose() {
     this.open = false;
+    clearInterval(this.ping);
     const r = this.room;
     if (!r || r.seats[this.seat] !== this) return;
     r.seats[this.seat] = null;
@@ -191,7 +197,7 @@ server.on('upgrade', (req, sock) => {
   if (seat < 0) { p.json({ t: 'full' }); p.close(); console.log(`Sân ${court}: đã đủ người, từ chối ${p.name}.`); return; }
   r.seats[seat] = p; p.room = r; p.seat = seat; p.court = court;
   const host = r.host === p;
-  p.json({ t: 'role', seat, host, fmt: r.fmt, court, urls: host ? lanIPs().map(ip => `http://${ip}:${PORT}`) : [] });
+  p.json({ t: 'role', seat, host, fmt: r.fmt, court, urls: host ? inviteURLs() : [] });
   roster(r);
   console.log(host
     ? `Sân ${court}: ${p.name} làm chủ sân, ${r.fmt === 'doi' ? 'đánh đôi' : 'đánh đơn'}, đang chờ người chơi…`
@@ -200,6 +206,7 @@ server.on('upgrade', (req, sock) => {
 
 await cacheThree();
 server.listen(PORT, '0.0.0.0', () => {
+  if (PUBLIC_URL) { console.log(`Sân Cầu Terralogic · đang chạy · 5 sân · ${PUBLIC_URL}`); return; }
   console.log('\nSân Cầu Terralogic · máy chủ LAN đang chạy · 5 sân');
   console.log(`  Máy này:        http://localhost:${PORT}`);
   for (const ip of lanIPs()) console.log(`  Bạn cùng mạng:  http://${ip}:${PORT}`);
