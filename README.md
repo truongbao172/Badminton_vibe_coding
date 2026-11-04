@@ -16,11 +16,12 @@ Lệnh này in ra hai loại link:
 - **Máy này:** `http://localhost:7777`. Máy chạy server mở link này.
 - **Bạn cùng mạng:** `http://192.168.x.x:7777`. Máy kia mở link này.
 
-Mọi người nhập **tên**, chọn **cùng một sân** (1 đến 5) rồi bấm **CHƠI LAN**.
+Mở tab **Chơi với người** trong menu. Tab này liệt kê 5 sân: sân nào trống, sân nào đang chờ người hay đang đấu, có mấy người và tên từng người. Mọi người nhập **tên**, bấm chọn **cùng một sân** rồi bấm **VÀO SÂN**.
 
 - **Tên:** hiện ở đúng vị trí người đó đứng trong phòng chờ, trên đầu nhân vật lúc đánh, và trong các thông báo cú đánh. Tên được nhớ trên máy cho lần sau.
-- **Số người online:** góc trên bên phải hiện số người đang mở game trên mạng LAN, cả người chưa vào sân. Menu ghi thêm có bao nhiêu người đang ở trong sân.
-- **Sân đầy:** menu ghi "đầy" và nút **CHƠI LAN** bị khoá. Server cũng từ chối nếu ai đó cố vào.
+- **Nhân vật:** bảng bên trái menu cho đổi màu áo, quần, da, tóc, vợt và kiểu tóc (trên điện thoại bấm nút **Nhân vật**). Lựa chọn được nhớ trên máy. Khi chơi LAN, mọi người trong sân thấy đúng nhân vật bạn chọn, ghế do máy đánh mặc màu mặc định.
+- **Số người online:** góc trên bên phải hiện số người đang mở game trên mạng LAN, cả người chưa vào sân. Tab **Chơi với người** có số người đang ở trong sân.
+- **Sân đầy:** danh sách sân ghi "đã đầy" và nút vào sân bị khoá. Server cũng từ chối nếu ai đó cố vào.
 
 - **Chủ sân:** người vào sân trống đầu tiên. Thể thức chủ sân chọn (đơn hay đôi) áp dụng cho cả sân, và chủ sân bấm **BẮT ĐẦU** khi đã có ít nhất một người vào.
 - **Số người:** đánh đơn 2 người. Đánh đôi tối đa 4 người, ghế trống do máy đánh.

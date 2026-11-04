@@ -95,8 +95,6 @@ body:not(.touch) .only-touch{display:none!important}
 .card h2{font-size:32px}
 .card p{margin:0;color:var(--muted);line-height:1.55;font-size:14px}
 .titleblock{display:flex;flex-direction:column;gap:8px}
-.spec{font-family:var(--display);font-size:12px;letter-spacing:.08em;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 14px;font-variant-numeric:tabular-nums}
-.spec span b{color:var(--ink);font-weight:600}
 .group{display:flex;flex-direction:column;gap:8px}
 .label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;position:relative}
@@ -108,7 +106,6 @@ body:not(.touch) .only-touch{display:none!important}
 .seg.two{grid-template-columns:repeat(2,1fr)}
 .seg.five{grid-template-columns:repeat(5,1fr)}
 .seg.five label{padding:8px 2px}
-.seg .occ:empty{display:none}
 .seats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .seats:empty{display:none}
 .seat{border:1px solid var(--edge);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:2px;min-width:0}
@@ -124,8 +121,6 @@ button.seat em{font-style:normal;font-size:12px;color:var(--led)}
 .field{display:flex;flex-direction:column;gap:6px}
 .field input{font:inherit;font-size:15px;color:var(--ink);background:rgba(255,255,255,.04);border:1px solid var(--edge);border-radius:8px;padding:10px 12px;-webkit-user-select:text;user-select:text}
 .field input:focus-visible{outline:2px solid var(--led);outline-offset:1px}
-.seg label.full{opacity:.5;cursor:not-allowed}
-.seg label.full .occ{color:var(--you)}
 .seat b{overflow-wrap:anywhere}
 .keys{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;font-size:13px;align-items:center;line-height:1.4}
 .keys dt{display:flex;gap:4px;flex-wrap:wrap}
@@ -145,7 +140,75 @@ button.seat em{font-style:normal;font-size:12px;color:var(--led)}
 .link code{flex:1;min-width:0;font-family:var(--display);font-size:16px;color:var(--led);overflow-wrap:anywhere;-webkit-user-select:text;user-select:text}
 .link .ghost{flex:0 0 auto;padding:8px 12px;font-size:13px}
 .card p.note{color:var(--led)}
+/* Main menu: two tabs (vs computer, vs people), each a two-column panel; one column on narrow screens */
+.card.wide{width:min(100%,900px);gap:18px}
+.card.wide h1{font-size:clamp(32px,6vw,44px)}
+.mgrid{display:grid;gap:20px}
+.mcol{display:flex;flex-direction:column;gap:16px;min-width:0}
+@media (min-width:820px){ .mgrid{grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);gap:26px} .side{border-left:1px solid var(--edge);padding-left:26px} }
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--edge);margin-top:-4px}
+.tab{background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:9px 14px;font-family:var(--display);font-weight:600;font-size:16px;letter-spacing:.04em;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:8px}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--led)}
+.tab-n{font-size:12px;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--led);color:var(--led-ink);display:inline-grid;place-items:center;font-variant-numeric:tabular-nums}
+.keys{margin:0}
+.side .keys{gap:7px 14px}
+.card p.tip{font-size:13px;border-top:1px solid var(--edge);padding-top:12px}
+.card p b{color:var(--ink);font-weight:600}
+.card p.hint{font-size:12.5px}
+.label-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.stat{font-size:12.5px;color:var(--muted);text-align:right}
+.courts{display:flex;flex-direction:column;gap:6px}
+.court{display:grid;grid-template-columns:62px 1fr auto;column-gap:12px;row-gap:2px;align-items:center;text-align:left;font:inherit;color:inherit;background:transparent;border:1px solid var(--edge);border-radius:8px;padding:8px 12px;cursor:pointer}
+.court:hover{background:rgba(255,255,255,.04)}
+.court[aria-pressed="true"]{border-color:var(--led);background:rgba(255,181,71,.1)}
+.court b{font-family:var(--display);font-size:16px;font-weight:600;grid-row:span 2}
+.court .st{font-size:13px;color:var(--ink)}
+.court .st i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:7px;vertical-align:1px;background:var(--muted);opacity:.5}
+.court.busy .st i{background:#4ad48a;opacity:1}
+.court.full .st i{background:var(--you);opacity:1}
+.court .ct{font-family:var(--display);font-size:15px;font-variant-numeric:tabular-nums;grid-row:span 2;color:var(--muted)}
+.court.busy .ct{color:var(--ink)}
+.court .who{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.seg input:disabled+label{opacity:.45;cursor:not-allowed}
+@media (max-width:819px){
+  .card.wide{gap:12px;padding:18px 16px}
+  .card.wide .titleblock{gap:6px}
+  .card.wide .titleblock p,.card p.tip{display:none}
+  .mgrid,.mcol{gap:12px}
+  .group{gap:6px}
+  .seg label{padding:8px 4px}
+  .court{padding:6px 12px}
+  .court:not(.busy) .who{display:none}
+}
 @media (max-width:420px){ .card{padding:20px 16px} .pt{font-size:24px} .pill{padding:0 10px} .pill-word{display:none} }
+/* Character customizer: a panel left of the menu card; a full-screen sheet on narrow screens */
+.menu-wrap{display:flex;gap:16px;align-items:stretch;justify-content:center;width:100%}
+.menu-wrap .card.wide{flex:0 1 900px;min-width:0}
+.custom{flex:0 0 250px;background:var(--panel-solid);border:1px solid var(--edge);border-radius:12px;padding:18px 16px;display:flex;flex-direction:column;gap:12px;box-shadow:0 30px 80px rgba(0,0,0,.45)}
+#preview{width:100%;height:190px;display:block;border-radius:8px;background:radial-gradient(ellipse at 50% 85%,rgba(255,181,71,.16),transparent 60%),rgba(255,255,255,.03)}
+#lookOpts{display:flex;flex-direction:column;gap:10px}
+.opt{display:flex;flex-direction:column;gap:6px}
+.sws{display:flex;flex-wrap:wrap;gap:6px}
+.swatch{width:24px;height:24px;border-radius:50%;padding:0;border:0;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(255,255,255,.28)}
+.swatch[aria-pressed="true"]{outline:2px solid var(--led);outline-offset:2px}
+.seg.four{grid-template-columns:repeat(4,1fr);gap:4px}
+.seg.four label{padding:7px 2px}
+.seg.four label b{font-size:13px}
+.ghost.mini{flex:0 0 auto;padding:6px 10px;font-size:12px;letter-spacing:.06em}
+.mhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+#btnCustom,.custom .done{display:none}
+@media (max-width:1099px){
+  .custom{display:none;position:fixed;inset:0;z-index:30;border-radius:0;overflow:auto;
+    padding:calc(env(safe-area-inset-top,0px) + 18px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 18px) max(16px,env(safe-area-inset-left,0px))}
+  .custom.open{display:flex}
+  #preview{height:min(42vh,320px)}
+  #btnCustom,.custom .done{display:block}
+  .custom .done{flex:0 0 auto;margin-top:auto}
+}
+/* Author credit: bottom-right, only while a menu screen is open */
+#credit{position:fixed;z-index:21;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 10px);font-size:11.5px;letter-spacing:.04em;color:var(--muted);opacity:.75;pointer-events:none}
+#credit b{color:var(--ink);font-weight:600}
 @media (prefers-reduced-motion:reduce){ #toast,#shot{transition:none} }
 </style>
 
@@ -189,70 +252,116 @@ button.seat em{font-style:normal;font-size:12px;color:var(--led)}
   </div>
 </div>
 
+<div id="credit">Thực hiện: <b>Bao Truong - Anh Nguyen</b> · Terralogic</div>
+
 <div class="overlay" id="menu">
-  <div class="card">
-    <div class="titleblock">
-      <div class="eyebrow">Đơn hoặc đôi · 3 ván · 21 điểm</div>
-      <h1>Sân Cầu Terralogic</h1>
-      <p>Nhà thi đấu có 5 sân chuẩn. Đánh đơn với máy, đánh đôi cùng một đồng đội máy, hoặc rủ bạn cùng mạng vào chung sân. Ván kết thúc khi đạt 21 và hơn 2 điểm, chạm 30 là thắng ngay.</p>
-      <div class="spec"><span>Sân đơn <b>13,40 × 5,18 m</b></span><span>Sân đôi <b>13,40 × 6,10 m</b></span><span>Lưới <b>1,55 m</b></span></div>
-    </div>
-    <div class="group">
-      <div class="label">Thể thức</div>
-      <div class="seg two" role="radiogroup">
-        <input type="radio" name="fmt" id="f-don" value="don" checked><label for="f-don"><b>Đơn</b><span>1 đấu 1</span></label>
-        <input type="radio" name="fmt" id="f-doi" value="doi"><label for="f-doi"><b>Đôi</b><span>2 đấu 2, có đồng đội</span></label>
+ <div class="menu-wrap">
+  <aside class="custom" id="custom" aria-label="Tuỳ chỉnh nhân vật">
+    <div class="label-row"><span class="label">Nhân vật của bạn</span><button class="ghost mini" id="btnRandom">Ngẫu nhiên</button></div>
+    <canvas id="preview" aria-label="Xem trước nhân vật"></canvas>
+    <div id="lookOpts"></div>
+    <div class="opt">
+      <span class="label">Kiểu tóc</span>
+      <div class="seg four" role="radiogroup">
+        <input type="radio" name="hs" id="hs-short" value="short"><label for="hs-short"><b>Ngắn</b></label>
+        <input type="radio" name="hs" id="hs-tail" value="tail"><label for="hs-tail"><b>Buộc</b></label>
+        <input type="radio" name="hs" id="hs-band" value="band"><label for="hs-band"><b>Băng đô</b></label>
+        <input type="radio" name="hs" id="hs-bald" value="bald"><label for="hs-bald"><b>Trọc</b></label>
       </div>
     </div>
-    <div class="group">
-      <div class="label">Chọn sân</div>
-      <div class="seg five" role="radiogroup" id="courtSeg">
-        <input type="radio" name="court" id="c-1" value="0" checked><label for="c-1"><b>1</b><span class="occ"></span></label>
-        <input type="radio" name="court" id="c-2" value="1"><label for="c-2"><b>2</b><span class="occ"></span></label>
-        <input type="radio" name="court" id="c-3" value="2"><label for="c-3"><b>3</b><span class="occ"></span></label>
-        <input type="radio" name="court" id="c-4" value="3"><label for="c-4"><b>4</b><span class="occ"></span></label>
-        <input type="radio" name="court" id="c-5" value="4"><label for="c-5"><b>5</b><span class="occ"></span></label>
+    <button class="primary done" id="btnCustomDone">XONG</button>
+  </aside>
+  <div class="card wide">
+    <div class="mhead">
+      <div class="titleblock">
+        <div class="eyebrow">Cầu lông 3D · 5 sân · đơn hoặc đôi</div>
+        <h1>Sân Cầu Terralogic</h1>
+        <p>Ván 21 điểm, phải hơn 2 điểm mới thắng ván, chạm 30 là thắng ngay. Thắng 2 ván là thắng trận.</p>
       </div>
+      <button class="ghost mini" id="btnCustom">Nhân vật</button>
     </div>
-    <div class="group">
-      <div class="label">Trình độ của máy</div>
-      <div class="seg" role="radiogroup">
-        <input type="radio" name="diff" id="d-de" value="de"><label for="d-de"><b>Dễ</b><span>Chậm, hay đánh hỏng</span></label>
-        <input type="radio" name="diff" id="d-vua" value="vua" checked><label for="d-vua"><b>Vừa</b><span>Phong trào</span></label>
-        <input type="radio" name="diff" id="d-kho" value="kho"><label for="d-kho"><b>Khó</b><span>Đập nhiều, ít lỗi</span></label>
-      </div>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tabAi" aria-controls="panelAi" aria-selected="true">Chơi với máy</button>
+      <button class="tab" role="tab" id="tabLan" aria-controls="panelLan" aria-selected="false">Chơi với người<span class="tab-n" id="tabLanN" hidden></span></button>
     </div>
-    <div class="group">
-      <div class="label">Cách chơi</div>
-      <dl class="keys only-desk">
-        <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>Di chuyển (hoặc phím mũi tên)</dd>
-        <dt><kbd>Shift</kbd></dt><dd>Giữ để chạy nhanh, tốn thể lực. Hết thể lực thì phải đi bộ một lúc.</dd>
-        <dt><kbd>J</kbd></dt><dd>Đánh mạnh: cầu cao thì đập, cầu thấp thì lốp sâu. Giữ <kbd>S</kbd> để phông cao.</dd>
-        <dt><kbd>K</kbd></dt><dd>Đánh nhẹ: bỏ nhỏ hoặc đẩy sát lưới</dd>
-        <dt><kbd>Space</kbd></dt><dd>Nhảy, với được cầu cao hơn</dd>
-        <dt><kbd>Space</kbd><kbd>J</kbd></dt><dd>Bật nhảy đập: nhảy rồi đánh mạnh khi cầu cao. Cầu cắm dốc và nhanh hơn đập thường.</dd>
-        <dt><kbd>A</kbd> / <kbd>D</kbd></dt><dd>Giữ khi chạm cầu để đánh về góc trái / phải</dd>
-      </dl>
-      <dl class="keys only-touch">
-        <dt><kbd>Cần trái</kbd></dt><dd>Di chuyển, đẩy hết cỡ để chạy. Nghiêng sang bên khi đánh để đưa cầu về góc đó.</dd>
-        <dt><kbd>MẠNH</kbd></dt><dd>Cầu cao thì đập, cầu thấp thì lốp sâu. Kéo cần về sau để phông cao.</dd>
-        <dt><kbd>NHẸ</kbd></dt><dd>Bỏ nhỏ hoặc đẩy sát lưới</dd>
-        <dt><kbd>NHẢY</kbd></dt><dd>Nhảy. Nhảy rồi bấm MẠNH khi cầu cao để bật nhảy đập.</dd>
-      </dl>
-      <p>Bấm sớm một chút khi cầu bay tới. Vòng vàng dưới sàn là chỗ cầu sẽ rơi, vòng chuyển xám nghĩa là cầu sẽ ra ngoài, cứ để rơi. Đánh đôi: vòng trắng dưới chân là bạn. Đồng đội máy tự lo cầu ở phía của mình, khi đội tấn công thì đứng trước sau, khi phòng thủ thì đứng hai bên.</p>
-    </div>
-    <label class="check"><input type="checkbox" id="optMarker" checked> Hiện điểm cầu rơi</label>
     <p id="menuNote" class="note" hidden></p>
-    <div class="row"><button class="primary" id="btnStart">VÀO SÂN</button></div>
-    <div class="group" id="lanGroup" hidden>
-      <div class="label">Chơi với bạn qua mạng LAN</div>
-      <p>Mọi người dùng chung mạng Wi-Fi và chọn cùng một sân. Người vào trước làm chủ sân, chọn đơn hay đôi và bấm bắt đầu. Đánh đôi nhận tối đa 4 người, ghế trống do máy đánh. 5 sân chạy 5 trận cùng lúc.</p>
-      <p id="lanStats" hidden></p>
-      <label class="field"><span class="label">Tên của bạn</span><input id="optName" maxlength="16" autocomplete="nickname" placeholder="Người chơi"></label>
-      <div class="row"><button class="ghost" id="btnLan">CHƠI LAN</button></div>
+
+    <div class="mgrid" id="panelAi" role="tabpanel" aria-labelledby="tabAi">
+      <section class="mcol" aria-label="Thiết lập trận">
+        <div class="group">
+          <div class="label">Thể thức</div>
+          <div class="seg two" role="radiogroup">
+            <input type="radio" name="fmt" id="f-don" value="don" checked><label for="f-don"><b>Đơn</b><span>1 đấu 1</span></label>
+            <input type="radio" name="fmt" id="f-doi" value="doi"><label for="f-doi"><b>Đôi</b><span>2 đấu 2, có đồng đội máy</span></label>
+          </div>
+        </div>
+        <div class="group">
+          <div class="label">Chọn sân</div>
+          <div class="seg five" role="radiogroup">
+            <input type="radio" name="court" id="c-1" value="0" checked><label for="c-1"><b>1</b></label>
+            <input type="radio" name="court" id="c-2" value="1"><label for="c-2"><b>2</b></label>
+            <input type="radio" name="court" id="c-3" value="2"><label for="c-3"><b>3</b></label>
+            <input type="radio" name="court" id="c-4" value="3"><label for="c-4"><b>4</b></label>
+            <input type="radio" name="court" id="c-5" value="4"><label for="c-5"><b>5</b></label>
+          </div>
+        </div>
+        <div class="group">
+          <div class="label">Trình độ của máy</div>
+          <div class="seg" role="radiogroup">
+            <input type="radio" name="diff" id="d-de" value="de"><label for="d-de"><b>Dễ</b><span>Hay đánh hỏng</span></label>
+            <input type="radio" name="diff" id="d-vua" value="vua" checked><label for="d-vua"><b>Vừa</b><span>Phong trào</span></label>
+            <input type="radio" name="diff" id="d-kho" value="kho"><label for="d-kho"><b>Khó</b><span>Đập nhiều, ít lỗi</span></label>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" id="optMarker" checked> Hiện điểm cầu rơi</label>
+        <div class="row"><button class="primary" id="btnStart">ĐÁNH VỚI MÁY</button></div>
+      </section>
+      <section class="mcol side" aria-label="Cách chơi">
+        <div class="label">Cách chơi</div>
+        <dl class="keys only-desk">
+          <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>Di chuyển (hoặc phím mũi tên)</dd>
+          <dt><kbd>Shift</kbd></dt><dd>Giữ để chạy, tốn thể lực</dd>
+          <dt><kbd>J</kbd></dt><dd>Đánh mạnh: đập hoặc lốp sâu. Giữ <kbd>S</kbd> để phông</dd>
+          <dt><kbd>K</kbd></dt><dd>Đánh nhẹ: bỏ nhỏ, đẩy sát lưới</dd>
+          <dt><kbd>Space</kbd></dt><dd>Nhảy, với được cầu cao hơn</dd>
+          <dt><kbd>Space</kbd><kbd>J</kbd></dt><dd>Bật nhảy đập khi cầu cao</dd>
+          <dt><kbd>A</kbd><kbd>D</kbd></dt><dd>Giữ lúc chạm cầu để đánh về góc</dd>
+          <dt><kbd>Esc</kbd></dt><dd>Tạm dừng</dd>
+        </dl>
+        <dl class="keys only-touch">
+          <dt><kbd>Cần trái</kbd></dt><dd>Di chuyển, đẩy hết cỡ để chạy, nghiêng khi đánh để đưa cầu về góc</dd>
+          <dt><kbd>MẠNH</kbd></dt><dd>Đập hoặc lốp sâu, kéo cần về sau để phông</dd>
+          <dt><kbd>NHẸ</kbd></dt><dd>Bỏ nhỏ, đẩy sát lưới</dd>
+          <dt><kbd>NHẢY</kbd></dt><dd>Nhảy, rồi bấm MẠNH khi cầu cao để bật nhảy đập</dd>
+        </dl>
+        <p class="tip">Bấm sớm một chút khi cầu bay tới. Vòng vàng là chỗ cầu rơi, vòng xám là cầu sẽ ra ngoài. Đánh đôi: vòng trắng dưới chân là bạn.</p>
+      </section>
     </div>
-    <p id="lanOff">Muốn đấu với bạn cùng mạng LAN? Chạy máy chủ đi kèm game bằng lệnh <kbd>node server.js</kbd> rồi mở link nó in ra.</p>
+
+    <div id="panelLan" role="tabpanel" aria-labelledby="tabLan" hidden>
+      <div class="mgrid" id="lanGroup" hidden>
+        <section class="mcol" aria-label="Các sân">
+          <div class="label-row"><span class="label">Các sân</span><span class="stat" id="lanStats"></span></div>
+          <div class="courts" id="courtList"></div>
+        </section>
+        <section class="mcol side" aria-label="Vào sân">
+          <label class="field"><span class="label">Tên của bạn</span><input id="optName" maxlength="16" autocomplete="nickname" placeholder="Người chơi"></label>
+          <div class="group">
+            <div class="label">Thể thức</div>
+            <div class="seg two" role="radiogroup" id="lfmtSeg">
+              <input type="radio" name="lfmt" id="lf-don" value="don" checked><label for="lf-don"><b>Đơn</b><span>2 người</span></label>
+              <input type="radio" name="lfmt" id="lf-doi" value="doi"><label for="lf-doi"><b>Đôi</b><span>Tối đa 4 người</span></label>
+            </div>
+            <p class="hint" id="lfmtHint"></p>
+          </div>
+          <div class="row"><button class="primary" id="btnLan">VÀO SÂN 1</button></div>
+          <p class="tip">Mọi người cùng mạng Wi-Fi. Người vào sân trống trước làm chủ sân và chọn thể thức. Ghế không có người do máy đánh. Phím điều khiển giống khi chơi với máy.</p>
+        </section>
+      </div>
+      <p id="lanOff">Chơi với người cần máy chủ đi kèm game. Chạy lệnh <kbd>node server.js</kbd> trên một máy, rồi mọi người cùng mạng Wi-Fi mở link nó in ra.</p>
+    </div>
   </div>
+ </div>
 </div>
 
 <div class="overlay" id="lobby" hidden>
@@ -495,15 +604,15 @@ function setCourt(i) { S.court = clamp(i | 0, 0, COURTS - 1); hallG.position.x =
 // Every limb hangs along -y at rest; rotation.x > 0 swings it forward (towards the net).
 const THIGH = 0.44, SHIN = 0.42, HIP_DROP = 0.06, FOOT = 0.07;
 const WALK_SP = 5.2, RUN_SP = 6.9, JUMP_V = 3.3, LAND_T = 0.18;
-function figure(shirt, shorts) {
+function figure(look) {
   const g = new THREE.Group();
   const m = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7 });
-  const skin = m(0xc98f6b), top = m(shirt), shoe = m(0xf1f1ee);
+  const skin = m(look.skin), top = m(look.shirt), shoe = m(0xf1f1ee), bottom = m(look.shorts), hairM = m(look.hair), frame = m(look.racket);
   const add = (geo, mt, x, y, z, parent) => { const o = new THREE.Mesh(geo, mt); o.position.set(x, y, z); o.castShadow = true; parent.add(o); return o; };
   const joint = (parent, x, y, z) => { const j = new THREE.Group(); j.position.set(x, y, z); parent.add(j); return j; };
   const cyl = (r0, r1, h) => new THREE.CylinderGeometry(r0, r1, h, 10);
   const pelvis = joint(g, 0, HIP_DROP + THIGH + SHIN + FOOT, 0);
-  add(new THREE.CylinderGeometry(0.17, 0.16, 0.22, 12), m(shorts), 0, -0.02, 0, pelvis);
+  add(new THREE.CylinderGeometry(0.17, 0.16, 0.22, 12), bottom, 0, -0.02, 0, pelvis);
   const legs = [-1, 1].map(s => {
     const hip = joint(pelvis, s * 0.1, -HIP_DROP, 0);
     add(cyl(0.075, 0.06, THIGH), skin, 0, -THIGH / 2, 0, hip);
@@ -517,7 +626,10 @@ function figure(shirt, shorts) {
   add(new THREE.CylinderGeometry(0.2, 0.17, 0.56, 12), top, 0, 0.28, 0, torso);
   const neck = joint(torso, 0, 0.6, 0);
   add(new THREE.SphereGeometry(0.115, 16, 12), skin, 0, 0.08, 0, neck);
-  add(new THREE.SphereGeometry(0.122, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), m(0x1d1a17), 0, 0.1, 0.01, neck);
+  // Hair styles: cap of hair, plus a ponytail or a headband; all hidden for a shaved head
+  const cap = add(new THREE.SphereGeometry(0.122, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), hairM, 0, 0.1, 0.01, neck);
+  const tail = add(new THREE.CylinderGeometry(0.04, 0.022, 0.2, 8), hairM, 0, 0.06, 0.15, neck); tail.rotation.x = 0.5;
+  const band = add(new THREE.TorusGeometry(0.119, 0.018, 8, 24), top, 0, 0.13, 0.005, neck); band.rotation.x = Math.PI / 2;
   const arm = s => {
     const sh = joint(torso, s * 0.235, 0.5, 0);
     add(cyl(0.058, 0.052, 0.14), top, 0, -0.06, 0, sh);
@@ -531,10 +643,25 @@ function figure(shirt, shorts) {
   const R = arm(1), L = arm(-1);
   add(new THREE.CylinderGeometry(0.016, 0.016, 0.2, 8), m(0x22252a), 0, -0.1, 0, R.wr);
   add(new THREE.CylinderGeometry(0.006, 0.006, 0.24, 6), m(0xcfd6dc), 0, -0.32, 0, R.wr);
-  const head = add(new THREE.TorusGeometry(0.1, 0.009, 8, 28), top, 0, -0.55, 0, R.wr); head.scale.y = 1.25;
+  const head = add(new THREE.TorusGeometry(0.1, 0.009, 8, 28), frame, 0, -0.55, 0, R.wr); head.scale.y = 1.25;
   const str = new THREE.Mesh(new THREE.CircleGeometry(0.1, 24), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25, side: THREE.DoubleSide }));
   str.position.y = -0.55; str.scale.y = 1.25; R.wr.add(str);
-  return { g, pelvis, torso, neck, legs, R, L };
+  const f = { g, pelvis, torso, neck, legs, R, L, mats: { skin, top, bottom, hairM, frame }, hair: { cap, tail, band } };
+  applyLook(f, look);
+  return f;
+}
+const HAIR_STYLES = ['short', 'tail', 'band', 'bald'];
+function applyLook(f, look) {
+  f.mats.skin.color.setHex(look.skin); f.mats.top.color.setHex(look.shirt); f.mats.bottom.color.setHex(look.shorts);
+  f.mats.hairM.color.setHex(look.hair); f.mats.frame.color.setHex(look.racket);
+  f.hair.cap.visible = look.hs !== 'bald'; f.hair.tail.visible = look.hs === 'tail'; f.hair.band.visible = look.hs === 'band';
+}
+// A look is valid only if every colour is a 24-bit number and the hair style is known
+function cleanLook(o) {
+  if (!o || typeof o !== 'object') return null;
+  const c = v => Number.isInteger(v) && v >= 0 && v <= 0xffffff;
+  return ['shirt', 'shorts', 'skin', 'hair', 'racket'].every(k => c(o[k])) && HAIR_STYLES.includes(o.hs)
+    ? { shirt: o.shirt, shorts: o.shorts, skin: o.skin, hair: o.hair, racket: o.racket, hs: o.hs } : null;
 }
 
 // Body poses. Right (racket) arm: sx/sz shoulder, el elbow, wr wrist. Left arm: lx/lz shoulder, le elbow.
@@ -563,16 +690,18 @@ const SWK = ['over', 'under', 'side'];
 // Swing timeline (s): ready → windup (held while armed) → contact → follow-through → ready
 const SW_W = 0.08, SW_C = 0.14, SW_F = 0.24, SW_END = 0.5;
 
-function makeAthlete(idx, shirt) {
-  const f = figure(shirt, 0x1f2a36), side = sideT(team(idx));
+const baseLook = shirt => ({ shirt, shorts: 0x1f2a36, skin: 0xc98f6b, hair: 0x1d1a17, racket: shirt, hs: 'short' });
+function makeAthlete(idx, look) {
+  const f = figure(look), side = sideT(team(idx));
   if (side < 0) f.g.rotation.y = Math.PI;
   scene.add(f.g);
   return Object.assign(f, { idx, side, x: 0, z: side * 3.5, vx: 0, vz: 0, y: 0, vy: 0, landT: 0, sta: 1, tired: false, run: false,
     swingT: -1, swingK: 'over', armed: null, armT: 0, cool: 0, phase: 0, plan: null, delay: 0, leave: false,
-    pose: { ...READY }, leg: { th: [0, 0], kn: [0, 0] } });
+    look, pose: { ...READY }, leg: { th: [0, 0], kn: [0, 0] } });
 }
-// Near team in orange shades, far team in blue shades; each partner a slightly different tone
-const ATH = [makeAthlete(0, 0xf0643a), makeAthlete(1, 0x3f9ef0), makeAthlete(2, 0xe8a23a), makeAthlete(3, 0x5b6ff0)];
+// Near team in orange shades, far team in blue shades; each partner a slightly different tone. Humans can restyle theirs.
+const DEF_LOOKS = [0xf0643a, 0x3f9ef0, 0xe8a23a, 0x5b6ff0].map(baseLook);
+const ATH = DEF_LOOKS.map((l, i) => makeAthlete(i, l));
 // LAN name tags floating above the other human players
 for (const a of ATH) {
   const cv = document.createElement('canvas'); cv.width = 512; cv.height = 96;
@@ -754,7 +883,7 @@ function sfx(kind) {
 const S = { mode: 'ai', fmt: 'don', n: 2, court: 0, state: 'menu', paused: false, diff: 'vua', score: [0, 0], games: [0, 0],
   server: 0, receiver: 1, right: [0, 1], resp: [-1, -1], lastWin: 0, gameNo: 1, history: [], rally: 0, best: 0,
   lastHitter: null, lastTeam: null, lastType: null, isServe: false, netFault: false, boxXs: 1, timer: 0, flightT: 0,
-  gameOver: false, matchOver: false, showMarker: true, human: [true, false, false, false], roster: [1, 0, 0, 0], names: ['', '', '', ''], hostSeat: 0 };
+  gameOver: false, matchOver: false, showMarker: true, human: [true, false, false, false], roster: [1, 0, 0, 0], names: ['', '', '', ''], looks: [], hostSeat: 0 };
 const isTouch = () => document.body.classList.contains('touch');
 let me = 0; // which player this screen controls (on LAN any seat, the host included)
 const partnerOf = i => S.n === 4 ? i ^ 2 : i;
@@ -1184,33 +1313,139 @@ $('btnLan').addEventListener('click', lanJoin);
 $('btnLobbyCancel').addEventListener('click', () => lanEnd(''));
 $('btnLobbyStart').addEventListener('click', () => { if (S.mode === 'host') newMatch(); });
 if (window.SAN7_LAN) { $('lanGroup').hidden = false; $('lanOff').hidden = true; }
+// Menu tabs: "Chơi với máy" and "Chơi với người" (remembered; people tab first when the LAN server is running)
+const TAB_KEY = 'san7-tab';
+function showTab(lan) {
+  $('tabAi').setAttribute('aria-selected', String(!lan)); $('tabLan').setAttribute('aria-selected', String(lan));
+  $('panelAi').hidden = lan; $('panelLan').hidden = !lan;
+  try { localStorage.setItem(TAB_KEY, lan ? 'lan' : 'ai'); } catch (e) {}
+}
+$('tabAi').addEventListener('click', () => showTab(false));
+$('tabLan').addEventListener('click', () => showTab(true));
+let savedTab = null;
+try { savedTab = localStorage.getItem(TAB_KEY); } catch (e) {}
+showTab(savedTab ? savedTab === 'lan' : !!window.SAN7_LAN);
+
+/* ---------- character customizer ---------- */
+const LOOK_OPTS = [
+  { k: 'shirt', label: 'Áo', colors: [0xf0643a, 0x3f9ef0, 0xe8a23a, 0x5b6ff0, 0x2fbf71, 0xe5484d, 0xc056d8, 0x14b8a6, 0xf2f2ee, 0x2b2f36] },
+  { k: 'shorts', label: 'Quần', colors: [0x1f2a36, 0x2b2f36, 0xf2f2ee, 0x3f5d8a, 0x7a3d2c, 0x3a6b45] },
+  { k: 'skin', label: 'Da', colors: [0xf1d0b5, 0xe0ac8a, 0xc98f6b, 0xa56b46, 0x6f4429] },
+  { k: 'hair', label: 'Tóc', colors: [0x1d1a17, 0x4a2f1d, 0x8a5a2b, 0xd8b45a, 0xb23a2e, 0x9aa0a6] },
+  { k: 'racket', label: 'Vợt', colors: [0xf0643a, 0x3f9ef0, 0xe5484d, 0x2fbf71, 0xffb547, 0xf2f2ee, 0x2b2f36] },
+];
+const LOOK_KEY = 'san7-look';
+let myLook = null;
+try { myLook = cleanLook(JSON.parse(localStorage.getItem(LOOK_KEY))); } catch (e) {}
+myLook = myLook || { ...DEF_LOOKS[0] };
+const hex = c => '#' + c.toString(16).padStart(6, '0');
+function buildLookOpts() {
+  const box = $('lookOpts'); box.innerHTML = '';
+  for (const o of LOOK_OPTS) {
+    const row = document.createElement('div'); row.className = 'opt';
+    const lb = document.createElement('span'); lb.className = 'label'; lb.textContent = o.label;
+    const sws = document.createElement('div'); sws.className = 'sws';
+    o.colors.forEach((c, i) => {
+      const b = document.createElement('button'); b.className = 'swatch'; b.style.background = hex(c);
+      b.setAttribute('aria-label', `${o.label} màu ${i + 1}`); b.setAttribute('aria-pressed', String(myLook[o.k] === c));
+      b.addEventListener('click', () => setLook({ ...myLook, [o.k]: c }));
+      sws.append(b);
+    });
+    row.append(lb, sws); box.append(row);
+  }
+  for (const el of document.querySelectorAll('input[name="hs"]')) el.checked = el.value === myLook.hs;
+}
+function setLook(l) {
+  myLook = l;
+  try { localStorage.setItem(LOOK_KEY, JSON.stringify(l)); } catch (e) {}
+  buildLookOpts(); applyLook(pv.fig, l); updateLooks();
+}
+for (const el of document.querySelectorAll('input[name="hs"]')) el.addEventListener('change', () => setLook({ ...myLook, hs: el.value }));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+$('btnRandom').addEventListener('click', () => {
+  const l = { hs: pick(HAIR_STYLES) }; for (const o of LOOK_OPTS) l[o.k] = pick(o.colors); setLook(l);
+});
+$('btnCustom').addEventListener('click', () => $('custom').classList.add('open'));
+$('btnCustomDone').addEventListener('click', () => $('custom').classList.remove('open'));
+// Which look each player wears: yours vs the computer; on LAN whatever each player picked
+function lookOf(i) {
+  if (S.mode === 'ai') return i === 0 ? myLook : DEF_LOOKS[i];
+  return (S.roster[i] && S.looks[i]) || DEF_LOOKS[i];
+}
+function updateLooks() { ATH.forEach((a, i) => { const l = lookOf(i); if (a.look !== l) { a.look = l; applyLook(a, l); } }); }
+
+// Turntable preview of your player, drawn by a small second renderer while the menu is open
+const pv = { canvas: $('preview'), w: 0, h: 0 };
+pv.renderer = new THREE.WebGLRenderer({ canvas: pv.canvas, antialias: true, alpha: true });
+pv.renderer.outputEncoding = THREE.sRGBEncoding; pv.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+pv.scene = new THREE.Scene();
+pv.scene.add(new THREE.HemisphereLight(0xe6eeff, 0x40301f, 0.85));
+const pvSun = new THREE.DirectionalLight(0xfff4e4, 0.9); pvSun.position.set(2, 4, 4); pv.scene.add(pvSun);
+pv.cam = new THREE.PerspectiveCamera(28, 1, 0.1, 20); pv.cam.position.set(0, 1.15, 5.2); pv.cam.lookAt(0, 1.05, 0);
+pv.fig = figure(myLook); pv.scene.add(pv.fig.g);
+{ // static ready stance
+  const f = pv.fig, q = READY;
+  f.R.sh.rotation.set(q.sx, 0, q.sz); f.R.el.rotation.x = q.el; f.R.wr.rotation.x = q.wr;
+  f.L.sh.rotation.set(q.lx, 0, q.lz); f.L.el.rotation.x = q.le; f.torso.rotation.x = -0.06;
+  let ext = 0;
+  f.legs.forEach(l => { l.hip.rotation.x = 0.15; l.knee.rotation.x = -0.3; l.ankle.rotation.x = 0.15; ext = THIGH * Math.cos(0.15) + SHIN * Math.cos(-0.15); });
+  f.pelvis.position.y = HIP_DROP + FOOT + ext;
+}
+function renderPreview() {
+  if ($('menu').hidden || !pv.canvas.offsetWidth) return;
+  const w = pv.canvas.clientWidth, h = pv.canvas.clientHeight;
+  if (w !== pv.w || h !== pv.h) { pv.w = w; pv.h = h; pv.renderer.setSize(w, h, false); pv.cam.aspect = w / h; pv.cam.updateProjectionMatrix(); }
+  pv.fig.g.rotation.y = Math.PI + (reduceMotion ? 0.5 : Math.sin(clock * 0.6) * 0.9);
+  pv.renderer.render(pv.scene, pv.cam);
+}
+buildLookOpts(); updateLooks();
 
 // LAN only: who is on each court and how many people have the game open, polled every 2 s
-let roomsT = 0;
+let roomsT = 0, rooms = [];
+const visitorId = Math.random().toString(36).slice(2, 12);
 function refreshRooms() {
   if (!window.SAN7_LAN) return;
   fetch('/rooms?id=' + visitorId).then(r => r.json()).then(data => {
-    const list = data.rooms || [];
-    rooms = list;
+    rooms = data.rooms || [];
     $('onlineN').textContent = data.online; $('online').hidden = false;
-    $('lanStats').textContent = `Đang có ${data.online} người mở game, ${data.playing} người đang ở trong sân.`; $('lanStats').hidden = false;
-    document.querySelectorAll('#courtSeg .occ').forEach((el, i) => {
-      const r = list[i];
-      el.textContent = !r || !r.n ? 'Trống' : r.full ? `${r.fmt === 'doi' ? 'Đôi' : 'Đơn'} · đầy` : `${r.fmt === 'doi' ? 'Đôi' : 'Đơn'} ${r.n}/${r.cap}${r.started ? ' · đấu' : ''}`;
-      el.parentElement.classList.toggle('full', !!(r && r.full));
-    });
-    const full = list[menuCourt()] && list[menuCourt()].full;
-    $('btnLan').disabled = !!full; $('btnLan').textContent = full ? 'SÂN ĐÃ ĐẦY' : 'CHƠI LAN';
+    $('lanStats').textContent = `${data.online} người online · ${data.playing} người trong sân`;
+    $('tabLanN').textContent = data.playing; $('tabLanN').hidden = !data.playing;
+    renderCourts();
   }).catch(() => {});
 }
-let rooms = [];
-const visitorId = Math.random().toString(36).slice(2, 12);
+// Court list on the "Chơi với người" tab: status, head count and names per court; tap to pick
+function renderCourts() {
+  const box = $('courtList'), sel = menuCourt();
+  box.innerHTML = '';
+  for (let i = 0; i < COURTS; i++) {
+    const r = rooms[i] || { n: 0, cap: 2, fmt: 'don' }, fmt = r.fmt === 'doi' ? 'Đôi' : 'Đơn';
+    const el = document.createElement('button');
+    el.className = 'court' + (r.n ? ' busy' : '') + (r.full ? ' full' : '');
+    el.setAttribute('aria-pressed', String(i === sel));
+    const nm = document.createElement('b'); nm.textContent = `Sân ${i + 1}`;
+    const st = document.createElement('span'); st.className = 'st';
+    st.innerHTML = '<i></i>'; st.append(!r.n ? 'Trống' : `${fmt} · ${r.full ? 'đã đầy' : r.started ? 'đang đấu' : 'đang chờ người'}`);
+    const ct = document.createElement('span'); ct.className = 'ct'; ct.textContent = r.n ? `${r.n}/${r.cap}` : '';
+    const who = document.createElement('span'); who.className = 'who';
+    who.textContent = r.n ? (r.names || []).join(', ') : 'Vào trước để làm chủ sân';
+    el.append(nm, st, ct, who);
+    el.addEventListener('click', () => { $('c-' + (i + 1)).checked = true; readMenu(); placeBackdrop(); renderCourts(); });
+    box.append(el);
+  }
+  // Joining an occupied court follows the host's format; an empty court lets you pick
+  const r = rooms[sel], taken = !!(r && r.n);
+  for (const el of document.querySelectorAll('input[name="lfmt"]')) { el.disabled = taken; if (taken) el.checked = el.value === r.fmt; }
+  $('lfmtHint').textContent = taken ? `Sân ${sel + 1} đang ${r.fmt === 'doi' ? 'đánh đôi' : 'đánh đơn'}, bạn vào theo thể thức của chủ sân.` : `Sân ${sel + 1} đang trống: bạn sẽ làm chủ sân.`;
+  const full = !!(r && r.full);
+  $('btnLan').disabled = full; $('btnLan').textContent = full ? `SÂN ${sel + 1} ĐÃ ĐẦY` : `VÀO SÂN ${sel + 1}`;
+}
 // Display name for LAN, remembered on this device
 const NAME_KEY = 'san7-name';
 try { $('optName').value = localStorage.getItem(NAME_KEY) || ''; } catch (e) {}
 const myName = () => $('optName').value.replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, 16);
 $('optName').addEventListener('change', () => { try { localStorage.setItem(NAME_KEY, myName()); } catch (e) {} });
-for (const el of document.querySelectorAll('input[name="court"]')) el.addEventListener('change', refreshRooms);
+for (const el of document.querySelectorAll('input[name="court"]')) el.addEventListener('change', () => { if (window.SAN7_LAN) renderCourts(); });
+if (window.SAN7_LAN) renderCourts();
 
 /* ---------- LAN: host runs the match, guests send input and render snapshots ---------- */
 let ws = null, lastSent = 0, lastIn = '', hudKey = '';
@@ -1257,23 +1492,24 @@ function renderSeats() {
   $('btnLobbyStart').textContent = guests ? 'BẮT ĐẦU' : 'CHỜ NGƯỜI VÀO';
 }
 function lanJoin() {
-  readMenu(); ensureAudio();
+  readMenu(); setFormat(document.querySelector('input[name="lfmt"]:checked').value); ensureAudio();
   if (rooms[S.court] && rooms[S.court].full) { $('menuNote').textContent = `Sân ${S.court + 1} đã đủ người. Chọn sân khác.`; $('menuNote').hidden = false; return; }
   try { localStorage.setItem(NAME_KEY, myName()); } catch (e) {}
   $('menuNote').hidden = true;
   showLobby('Đang kết nối…', '', []);
   let sock;
-  try { sock = new WebSocket(`ws://${location.host}/ws?court=${S.court + 1}&fmt=${S.fmt}&name=${encodeURIComponent(myName())}`); } catch (e) { lanEnd('Không kết nối được máy chủ LAN.'); return; }
+  try { sock = new WebSocket(`ws://${location.host}/ws?court=${S.court + 1}&fmt=${S.fmt}&name=${encodeURIComponent(myName())}&look=${encodeURIComponent(JSON.stringify(myLook))}`); } catch (e) { lanEnd('Không kết nối được máy chủ LAN.'); return; }
   ws = sock;
   sock.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (_) { return; } onNet(m); };
   sock.onclose = () => { if (ws === sock) lanEnd(S.mode === 'ai' ? 'Không kết nối được máy chủ LAN. Kiểm tra server.js còn chạy không.' : 'Mất kết nối với máy chủ.'); };
 }
 function lanEnd(msg) {
   const sock = ws; ws = null; if (sock) try { sock.close(); } catch (_) {}
-  S.mode = 'ai'; me = 0; S.human = [true, false, false, false]; S.roster = [1, 0, 0, 0]; S.names = ['', '', '', '']; S.hostSeat = 0; updateTags();
+  S.mode = 'ai'; me = 0; S.human = [true, false, false, false]; S.roster = [1, 0, 0, 0]; S.names = ['', '', '', '']; S.looks = []; S.hostSeat = 0; updateTags(); updateLooks();
   for (const id of ['lobby', 'pause', 'result']) $(id).hidden = true;
   backToMenu();
   $('menuNote').textContent = msg; $('menuNote').hidden = !msg;
+  if (msg) showTab(true);
 }
 function onNet(m) {
   if (m.t === 'role') {
@@ -1285,7 +1521,7 @@ function onNet(m) {
     } else showLobby('Đã vào sân', 'Bấm vào ô trống để chọn vị trí muốn chơi, rồi chờ chủ sân bắt đầu trận.', []);
   } else if (m.t === 'roster') {
     const prevNames = S.names;
-    S.roster = m.seats.map(Number); S.hostSeat = m.host | 0; S.names = (m.names || []).map(String);
+    S.roster = m.seats.map(Number); S.hostSeat = m.host | 0; S.names = (m.names || []).map(String); S.looks = (m.looks || []).map(cleanLook); updateLooks();
     if (me !== (m.you | 0)) { me = m.you | 0; lastIn = ''; updateHUD(); }
     if (S.mode === 'host') syncHumans(prevNames);
     if (!$('lobby').hidden) renderSeats();
@@ -1445,6 +1681,8 @@ function frame(now) {
   if (S.mode === 'guest') guestTick(dt);
   else if (active && !S.paused) update(dt);
   if (S.mode === 'host' && now - lastSent > 14) { lastSent = now; send(snapshot()); }
+  const credit = (overlayOpen() || !$('pause').hidden) && !$('custom').classList.contains('open');
+  if (credit === $('credit').hidden) $('credit').hidden = !credit;
   if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('show'); }
   if (shotT > 0) { shotT -= dt; if (shotT <= 0) $('shot').classList.remove('show'); }
   if ((roomsT -= dt) <= 0) { roomsT = 2; refreshRooms(); }
@@ -1452,6 +1690,7 @@ function frame(now) {
   if (Math.abs(st - shownSta) > 0.004) { shownSta = st; $('staBar').style.transform = `scaleX(${st})`; $('sta').classList.toggle('low', st < 0.3); }
   syncVisuals(S.paused ? 0 : dt);
   renderer.render(scene, camera);
+  renderPreview();
 }
 
 readMenu(); placeBackdrop();

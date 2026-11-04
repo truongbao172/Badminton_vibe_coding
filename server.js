@@ -49,6 +49,15 @@ const lanIPs = () => Object.values(os.networkInterfaces()).flat()
 const rooms = Array.from({ length: COURTS }, () => ({ fmt: 'don', seats: [null, null, null, null], host: null, started: false }));
 const cap = r => r.fmt === 'doi' ? 4 : 2;
 const count = r => r.seats.filter(Boolean).length;
+// Kiểu nhân vật người chơi gửi lên: chỉ nhận 5 mã màu 24-bit và một kiểu tóc hợp lệ
+const HAIR = ['short', 'tail', 'band', 'bald'];
+function parseLook(raw) {
+  try {
+    const o = JSON.parse(raw || 'null'), c = v => Number.isInteger(v) && v >= 0 && v <= 0xffffff;
+    if (!o || !['shirt', 'shorts', 'skin', 'hair', 'racket'].every(k => c(o[k])) || !HAIR.includes(o.hs)) return null;
+    return { shirt: o.shirt, shorts: o.shorts, skin: o.skin, hair: o.hair, racket: o.racket, hs: o.hs };
+  } catch { return null; }
+}
 // Người đang mở trang: mỗi trang hỏi /rooms vài giây một lần kèm mã riêng; quá 8 giây không hỏi thì coi như đã thoát.
 const seen = new Map();
 function online(id) {
@@ -72,7 +81,7 @@ const server = http.createServer((req, res) => {
     res.end(JSON.stringify({
       online: online(id),
       playing: rooms.reduce((n, r) => n + count(r), 0),
-      rooms: rooms.map(r => ({ fmt: r.fmt, n: count(r), cap: cap(r), full: count(r) >= cap(r), started: r.started })),
+      rooms: rooms.map(r => ({ fmt: r.fmt, n: count(r), cap: cap(r), full: count(r) >= cap(r), started: r.started, names: r.seats.filter(Boolean).map(p => p.name) })),
     }));
   } else {
     res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
@@ -91,13 +100,13 @@ function wsFrame(op, data) {
 }
 
 function roster(r) {
-  const seats = r.seats.map(p => p ? 1 : 0), names = r.seats.map(p => p ? p.name : ''), host = r.seats.indexOf(r.host);
-  for (const p of r.seats) if (p) p.json({ t: 'roster', seats, names, host, you: p.seat });
+  const seats = r.seats.map(p => p ? 1 : 0), names = r.seats.map(p => p ? p.name : ''), looks = r.seats.map(p => p ? p.look : null), host = r.seats.indexOf(r.host);
+  for (const p of r.seats) if (p) p.json({ t: 'roster', seats, names, looks, host, you: p.seat });
 }
 
 class Peer {
   constructor(sock) {
-    this.sock = sock; this.buf = Buffer.alloc(0); this.frag = null; this.open = true; this.room = null; this.seat = -1; this.court = 0; this.name = '';
+    this.sock = sock; this.buf = Buffer.alloc(0); this.frag = null; this.open = true; this.room = null; this.seat = -1; this.court = 0; this.name = ''; this.look = null;
     sock.on('data', d => this.onData(d));
     sock.on('close', () => this.onClose());
     sock.on('error', () => sock.destroy());
@@ -183,6 +192,7 @@ server.on('upgrade', (req, sock) => {
   const r = rooms[court - 1];
   // Tên hiển thị: bỏ ký tự điều khiển, tối đa 16 ký tự
   p.name = (u.searchParams.get('name') || '').replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, 16) || 'Người chơi';
+  p.look = parseLook(u.searchParams.get('look'));
   let seat = -1;
   // Người đầu tiên vào sân trống làm chủ sân và chọn thể thức; người sau theo thể thức đó.
   if (!count(r)) { r.fmt = u.searchParams.get('fmt') === 'doi' ? 'doi' : 'don'; r.started = false; r.host = p; seat = 0; }
