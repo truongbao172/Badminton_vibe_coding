@@ -1,0 +1,12 @@
+{
+  "name": "san-cau-so-7",
+  "private": true,
+  "type": "module",
+  "description": "Game cầu lông 3D, đánh với máy hoặc với bạn qua mạng LAN",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
