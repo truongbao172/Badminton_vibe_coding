@@ -116,6 +116,11 @@ body:not(.touch) .only-touch{display:none!important}
 button.seat{background:transparent;text-align:left;cursor:pointer;font:inherit;color:inherit}
 button.seat:hover{border-color:var(--led);background:rgba(255,181,71,.06)}
 button.seat em{font-style:normal;font-size:12px;color:var(--led)}
+.seat.empty{border-style:dashed}
+.seat-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.seat-acts button{font:inherit;font-size:12px;color:var(--led);background:transparent;border:1px solid var(--edge);border-radius:6px;padding:4px 8px;cursor:pointer}
+.seat-acts button:hover{border-color:var(--led);background:rgba(255,181,71,.06)}
+.seat-acts button.rm{color:var(--muted)}
 .primary:disabled{opacity:.45;cursor:default;filter:none}
 .ghost:disabled{opacity:.45;cursor:not-allowed;background:transparent}
 .field{display:flex;flex-direction:column;gap:6px}
@@ -198,6 +203,13 @@ button.seat em{font-style:normal;font-size:12px;color:var(--led)}
 .ghost.mini{flex:0 0 auto;padding:6px 10px;font-size:12px;letter-spacing:.06em}
 .mhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
 #btnCustom,.custom .done{display:none}
+/* Side by side, the customizer takes the menu card's height (contain:size ignores its own content height)
+   and the options scroll inside it, so the menu never grows past the screen */
+@media (min-width:1100px){
+  .custom{contain:size}
+  #lookOpts{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;margin-right:-8px;padding-right:8px;padding-bottom:18px;
+    -webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 28px),transparent)}
+}
 @media (max-width:1099px){
   .custom{display:none;position:fixed;inset:0;z-index:30;border-radius:0;overflow:auto;
     padding:calc(env(safe-area-inset-top,0px) + 18px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 18px) max(16px,env(safe-area-inset-left,0px))}
@@ -206,6 +218,14 @@ button.seat em{font-style:normal;font-size:12px;color:var(--led)}
   #btnCustom,.custom .done{display:block}
   .custom .done{flex:0 0 auto;margin-top:auto}
 }
+/* Watching another court: bar at the bottom, no controls or stamina */
+.watchbar{pointer-events:auto;display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--edge);border-radius:999px;padding:6px 6px 6px 16px;font-family:var(--display);font-size:14px;letter-spacing:.05em}
+.watchbar span{margin-right:6px}
+.primary.mini{flex:0 0 auto;padding:7px 14px;font-size:13px;border-radius:999px}
+.watchbar .ghost.mini{border-radius:999px}
+body.watching #hint,body.watching .touch-ctl,body.watching #sta{display:none!important}
+#btnWatch{flex:0 0 auto}
+#nmP,#nmA{display:inline-block;max-width:170px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
 /* Author credit: bottom-right, only while a menu screen is open */
 #credit{position:fixed;z-index:21;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 10px);font-size:11.5px;letter-spacing:.04em;color:var(--muted);opacity:.75;pointer-events:none}
 #credit b{color:var(--ink);font-weight:600}
@@ -239,6 +259,7 @@ button.seat em{font-style:normal;font-size:12px;color:var(--led)}
 
   <div class="bottom">
     <div id="shot"></div>
+    <div class="watchbar" id="watchBar" hidden><span id="watchTitle">Đang xem</span><button class="ghost mini" id="watchPrev" aria-label="Sân trước">◀</button><button class="ghost mini" id="watchNext" aria-label="Sân sau">▶</button><button class="primary mini" id="watchExit">THOÁT</button></div>
     <div id="serveHint" hidden></div>
     <div id="hint" class="only-desk"><kbd>W A S D</kbd> di chuyển · giữ <kbd>Shift</kbd> chạy · <kbd>Space</kbd> nhảy · <kbd>J</kbd> đánh mạnh · <kbd>Space</kbd>+<kbd>J</kbd> bật nhảy đập · <kbd>K</kbd> đánh nhẹ · <kbd>Esc</kbd> tạm dừng</div>
     <div class="touch-ctl">
@@ -354,8 +375,8 @@ button.seat em{font-style:normal;font-size:12px;color:var(--led)}
             </div>
             <p class="hint" id="lfmtHint"></p>
           </div>
-          <div class="row"><button class="primary" id="btnLan">VÀO SÂN 1</button></div>
-          <p class="tip">Mọi người cùng mạng Wi-Fi. Người vào sân trống trước làm chủ sân và chọn thể thức. Ghế không có người do máy đánh. Phím điều khiển giống khi chơi với máy.</p>
+          <div class="row"><button class="primary" id="btnLan">VÀO SÂN 1</button><button class="ghost" id="btnWatch" disabled title="Xem trận đang đấu ở sân này">XEM</button></div>
+          <p class="tip">Mọi người cùng mạng Wi-Fi. Người vào sân trống trước làm chủ sân và chọn thể thức. Thiếu người thì chủ sân thêm máy vào ghế trống. Phím điều khiển giống khi chơi với máy.</p>
         </section>
       </div>
       <p id="lanOff">Chơi với người cần máy chủ đi kèm game. Chạy lệnh <kbd>node server.js</kbd> trên một máy, rồi mọi người cùng mạng Wi-Fi mở link nó in ra.</p>
@@ -369,6 +390,7 @@ button.seat em{font-style:normal;font-size:12px;color:var(--led)}
     <div class="titleblock"><div class="eyebrow" id="lobbyEyebrow">Chơi LAN</div><h2 id="lobbyTitle">Đang chờ đối thủ</h2><p id="lobbyText"></p></div>
     <div class="seats" id="lobbySeats"></div>
     <div class="links" id="lobbyLinks"></div>
+    <div class="row"><button class="ghost" id="btnLobbyFill" hidden>+ THÊM MÁY VÀO GHẾ TRỐNG</button></div>
     <div class="row"><button class="primary" id="btnLobbyStart" hidden>BẮT ĐẦU</button><button class="ghost" id="btnLobbyCancel">Huỷ</button></div>
   </div>
 </div>
@@ -543,9 +565,9 @@ const tapeMat = new THREE.MeshStandardMaterial({ color: 0xf4f4f0, roughness: 0.6
 const postMat = new THREE.MeshStandardMaterial({ color: 0x24443a, roughness: 0.5 });
 const lampMat = new THREE.MeshBasicMaterial({ color: 0xfff2d4 });
 const courtX = i => (i - (COURTS - 1) / 2) * SPACING;
-const signs = [];
+const signs = [], courtG = [];
 for (let i = 0; i < COURTS; i++) {
-  const cg = new THREE.Group(); cg.position.x = courtX(i); hallG.add(cg);
+  const cg = new THREE.Group(); cg.position.x = courtX(i); hallG.add(cg); courtG.push(cg);
   const mat = new THREE.Mesh(new THREE.PlaneGeometry(MAT_W, MAT_L), matMat);
   mat.rotation.x = -Math.PI / 2; mat.position.y = 0.004; mat.receiveShadow = true; cg.add(mat);
   const net = new THREE.Mesh(new THREE.PlaneGeometry(6.1, 0.76), netMat);
@@ -579,6 +601,8 @@ const bannerTex = canvasTex(2048, 256, () => {});
 const banner = new THREE.Mesh(new THREE.PlaneGeometry(16, 2), new THREE.MeshBasicMaterial({ map: bannerTex }));
 banner.position.set(0, 7.6, -15.9); hallG.add(banner);
 const banner2 = banner.clone(); banner2.position.z = 15.9; banner2.rotation.y = Math.PI; hallG.add(banner2);
+// Format shown on the chosen court's board: the watched match while watching, otherwise your own
+const shownN = () => S.mode === 'watch' && GC[S.court] ? GC[S.court].n : S.n;
 function drawSigns() {
   const font = (w, px) => `${w} ${px}px "Chakra Petch", "Arial Narrow", sans-serif`;
   signs.forEach((tex, i) => {
@@ -587,7 +611,7 @@ function drawSigns() {
     g.textBaseline = 'middle';
     g.fillStyle = on ? '#ffb547' : '#55707c'; g.font = font(700, 150); g.fillText(`SÂN ${i + 1}`, 48, 136);
     g.fillStyle = on ? '#9db1b6' : '#3d5560'; g.font = font(600, 38);
-    g.fillText('CẦU LÔNG · ' + (on ? (S.n === 4 ? 'ĐÁNH ĐÔI' : 'ĐÁNH ĐƠN') : 'TỰ DO'), 560, 108, 440);
+    g.fillText('CẦU LÔNG · ' + (on ? (shownN() === 4 ? 'ĐÁNH ĐÔI' : 'ĐÁNH ĐƠN') : 'TỰ DO'), 560, 108, 440);
     g.fillText(on ? '21 ĐIỂM · 3 VÁN' : 'NHÀ THI ĐẤU TERRALOGIC', 560, 162, 440);
     tex.needsUpdate = true;
   });
@@ -882,10 +906,11 @@ const SWK = ['over', 'under', 'side'];
 const SW_W = 0.08, SW_C = 0.14, SW_F = 0.24, SW_END = 0.5;
 
 const baseLook = shirt => ({ shirt, shorts: 0x1f2a36, skirt: 0xf2f2ee, skin: 0xc98f6b, hair: 0x1d1a17, racket: shirt, hs: 'short', bt: 'shorts', rk: 'plain', rkv: 'xanh', str: 0xf4f4f2, hand: 'R' });
-function makeAthlete(idx, look) {
+function makeAthlete(idx, look, parent = scene) {
   const f = figure(look), side = sideT(team(idx));
   if (side < 0) f.g.rotation.y = Math.PI;
-  scene.add(f.g);
+  parent.add(f.g);
+  makeTag(f);
   return Object.assign(f, { idx, side, x: 0, z: side * 3.5, vx: 0, vz: 0, y: 0, vy: 0, landT: 0, sta: 1, tired: false, run: false,
     swingT: -1, swingK: 'over', armed: null, armT: 0, cool: 0, phase: 0, plan: null, delay: 0, leave: false,
     look, pose: { ...READY }, leg: { th: [0, 0], kn: [0, 0], an: [0, 0] } });
@@ -894,7 +919,7 @@ function makeAthlete(idx, look) {
 const DEF_LOOKS = [0xf0643a, 0x3f9ef0, 0xe8a23a, 0x5b6ff0].map(baseLook);
 const ATH = DEF_LOOKS.map((l, i) => makeAthlete(i, l));
 // LAN name tags floating above the other human players
-for (const a of ATH) {
+function makeTag(a) {
   const cv = document.createElement('canvas'); cv.width = 512; cv.height = 96;
   const tex = new THREE.CanvasTexture(cv); tex.encoding = THREE.sRGBEncoding;
   // Same size on screen however far away the player is
@@ -922,12 +947,15 @@ const hitCenter = a => ({ x: a.x + a.side * a.hand * 0.35, z: a.z - a.side * 0.2
 const ease = u => u * u * (3 - 2 * u);
 const basePose = {}, swingPose = {};
 function mixPose(out, p, q, u) { for (const k in p) out[k] = p[k] + (q[k] - p[k]) * u; return out; }
-function poseTarget(a, idx) {
-  if (S.state === 'serve' && S.server === idx) mixPose(basePose, SERVE, SERVE, 0);
+// Match context the animation reads: your own match, or another court's match from its summaries
+const MAIN = { get state() { return S.state; }, get server() { return S.server; }, get sh() { return shuttle; } };
+function poseTarget(a, idx, ctx) {
+  const sh = ctx.sh;
+  if (ctx.state === 'serve' && ctx.server === idx) mixPose(basePose, SERVE, SERVE, 0);
   else {
     // Racket comes up early when a high shuttle is heading this way
-    const incoming = shuttle.mode === 'fly' && shuttle.v.z * a.side > 0;
-    mixPose(basePose, READY, HIGH, incoming ? clamp((shuttle.p.y - a.y - 1.8) / 0.8, 0, 1) : 0);
+    const incoming = sh.mode === 'fly' && sh.v.z * a.side > 0;
+    mixPose(basePose, READY, HIGH, incoming ? clamp((sh.p.y - a.y - 1.8) / 0.8, 0, 1) : 0);
   }
   const t = a.swingT, K = SWINGS[a.swingK];
   if (t < 0) return basePose;
@@ -941,13 +969,13 @@ function guessKind(a) {
   return h > 1.85 ? 'over' : h < 1.1 ? 'under' : 'side';
 }
 
-function animateAthlete(a, dt, idx) {
+function animateAthlete(a, dt, idx, ctx = MAIN) {
   if (a.swingT >= 0) {
     a.swingT += dt;
     if (a.armed && a.swingT > SW_W) a.swingT = SW_W;
     if (a.swingT >= SW_END) a.swingT = -1;
   }
-  const tgt = poseTarget(a, idx), q = a.pose, ka = 1 - Math.exp(-dt * 30);
+  const tgt = poseTarget(a, idx, ctx), q = a.pose, ka = 1 - Math.exp(-dt * 30);
   for (const k in tgt) q[k] += (tgt[k] - q[k]) * ka;
 
   // Legs: athletic crouch in a rally, stride while moving, tuck in the air (scissor kick on an overhead jump)
@@ -965,7 +993,7 @@ function animateAthlete(a, dt, idx) {
     const T = scissor ? [1.05, -0.25] : [1.15, 0.95], K = scissor ? [-1.5, -1.95] : [-2.0, -1.75];
     th = T.map(v => v * tuck); kn = K.map(v => v * tuck);
   } else {
-    const crouch = (S.state === 'rally' ? 1 : 0.4) * (1 - run * 0.5) + (a.landT > 0 ? a.landT / LAND_T : 0);
+    const crouch = (ctx.state === 'rally' ? 1 : 0.4) * (1 - run * 0.5) + (a.landT > 0 ? a.landT / LAND_T : 0);
     th = [0, 1].map(i => 0.32 * crouch + Math.sin(a.phase + i * Math.PI) * 0.6 * run);
     kn = [0, 1].map(i => -(0.62 * crouch + (1 - Math.cos(a.phase + i * Math.PI)) * 0.45 * run));
   }
@@ -990,7 +1018,7 @@ function animateAthlete(a, dt, idx) {
   a.L.sh.rotation.set(q.lx + (a.swingT < 0 ? Math.sin(a.phase) * 0.45 * run : 0), 0, q.lz); a.L.el.rotation.x = q.le;
 
   // Eyes on the shuttle
-  const p = shuttle.p, dx = (p.x - a.x) * a.side, dz = (p.z - a.z) * a.side, dy = p.y - a.y - 1.6;
+  const p = ctx.sh.p, dx = (p.x - a.x) * a.side, dz = (p.z - a.z) * a.side, dy = p.y - a.y - 1.6;
   a.neck.rotation.set(clamp(Math.atan2(dy, Math.hypot(dx, dz)) - q.lean, -0.5, 0.9), clamp(a.hand * Math.atan2(-dx, -dz) - q.tw, -1.1, 1.1), 0);
   a.g.position.set(a.x, a.y, a.z);
 }
@@ -1087,7 +1115,7 @@ function sfx(kind) {
 const S = { mode: 'ai', fmt: 'don', n: 2, court: 0, state: 'menu', paused: false, diff: 'vua', score: [0, 0], games: [0, 0],
   server: 0, receiver: 1, right: [0, 1], resp: [-1, -1], lastWin: 0, gameNo: 1, history: [], rally: 0, best: 0,
   lastHitter: null, lastTeam: null, lastType: null, isServe: false, netFault: false, boxXs: 1, timer: 0, flightT: 0,
-  gameOver: false, matchOver: false, showMarker: true, human: [true, false, false, false], roster: [1, 0, 0, 0], names: ['', '', '', ''], looks: [], hostSeat: 0 };
+  gameOver: false, matchOver: false, showMarker: true, human: [true, false, false, false], roster: [1, 0, 0, 0], names: ['', '', '', ''], looks: [], bots: [false, false, false, false], hostSeat: 0 };
 const isTouch = () => document.body.classList.contains('touch');
 let me = 0; // which player this screen controls (on LAN any seat, the host included)
 const partnerOf = i => S.n === 4 ? i ^ 2 : i;
@@ -1138,6 +1166,7 @@ function showShot(idx, type) {
   $('shot').classList.add('show'); shotT = 1.1;
 }
 function updateHUD() {
+  if (S.mode === 'watch') { watchHUD(); return; }
   const mt = team(me), o = 1 - mt;
   $('pP').textContent = S.score[mt]; $('pA').textContent = S.score[o];
   $('gP').textContent = S.games[mt]; $('gA').textContent = S.games[o];
@@ -1455,6 +1484,12 @@ function action(kind, idx = me) {
 }
 const overlayOpen = () => !$('menu').hidden || !$('result').hidden || !$('lobby').hidden;
 addEventListener('keydown', e => {
+  if (S.mode === 'watch') {
+    if (e.code === 'Escape') exitWatch('');
+    else if (e.code === 'ArrowLeft' || e.code === 'KeyA') cycleWatch(-1);
+    else if (e.code === 'ArrowRight' || e.code === 'KeyD') cycleWatch(1);
+    e.preventDefault(); return;
+  }
   if (overlayOpen()) return;
   if (e.code === 'Escape' || e.code === 'KeyP') { setPaused(!S.paused); e.preventDefault(); return; }
   if (MOVE[e.code]) { keys.add(e.code); e.preventDefault(); }
@@ -1695,6 +1730,8 @@ function renderCourts() {
   $('lfmtHint').textContent = taken ? `Sân ${sel + 1} đang ${r.fmt === 'doi' ? 'đánh đôi' : 'đánh đơn'}, bạn vào theo thể thức của chủ sân.` : `Sân ${sel + 1} đang trống: bạn sẽ làm chủ sân.`;
   const full = !!(r && r.full);
   $('btnLan').disabled = full; $('btnLan').textContent = full ? `SÂN ${sel + 1} ĐÃ ĐẦY` : `VÀO SÂN ${sel + 1}`;
+  const can = live(sel);
+  $('btnWatch').disabled = !can; $('btnWatch').textContent = can ? `XEM SÂN ${sel + 1}` : 'XEM';
 }
 // Display name for LAN, remembered on this device
 const NAME_KEY = 'san7-name';
@@ -1702,7 +1739,6 @@ try { $('optName').value = localStorage.getItem(NAME_KEY) || ''; } catch (e) {}
 const myName = () => $('optName').value.replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, 16);
 $('optName').addEventListener('change', () => { try { localStorage.setItem(NAME_KEY, myName()); } catch (e) {} });
 for (const el of document.querySelectorAll('input[name="court"]')) el.addEventListener('change', () => { if (window.SAN7_LAN) renderCourts(); });
-if (window.SAN7_LAN) renderCourts();
 
 /* ---------- LAN: host runs the match, guests send input and render snapshots ---------- */
 let ws = null, lastSent = 0, lastIn = '', lastInAt = 0, hudKey = '';
@@ -1727,27 +1763,45 @@ function showLobby(title, text, urls) {
 }
 function renderSeats() {
   const box = $('lobbySeats'); box.innerHTML = '';
-  $('btnLobbyStart').hidden = S.mode !== 'host';
-  if (S.mode === 'ai') return;
-  // Two columns: near team (players 0, 2) and far team (1, 3). Tap a free spot to move there.
+  const host = S.mode === 'host';
+  $('btnLobbyStart').hidden = !host;
+  if (S.mode === 'ai') { $('btnLobbyFill').hidden = true; return; }
+  // Each spot holds a player, a computer the host added, or nobody. Anyone can move into a spot
+  // without a player; the host adds or removes computers.
   const order = S.n === 4 ? [0, 1, 2, 3] : [0, 1];
   for (const i of order) {
-    const on = !!S.roster[i], free = !on, el = document.createElement(free ? 'button' : 'div');
-    el.className = 'seat' + (i === me ? ' me' : '') + (on ? '' : ' ai');
+    const on = !!S.roster[i], bot = !on && S.bots[i], el = document.createElement('div');
+    el.className = 'seat' + (i === me ? ' me' : '') + (on ? '' : bot ? ' ai' : ' empty');
     const lb = document.createElement('span');
     lb.textContent = (team(i) ? 'Sân xa' : 'Sân gần') + (S.n === 4 ? (i < 2 ? ' · ô phải' : ' · ô trái') : '') + (on && i === S.hostSeat ? ' · chủ sân' : '');
-    const nm = document.createElement('b'); nm.textContent = on ? (S.names[i] || 'Người chơi') + (i === me ? ' (bạn)' : '') : 'Máy đánh thay';
+    const nm = document.createElement('b');
+    nm.textContent = on ? (S.names[i] || 'Người chơi') + (i === me ? ' (bạn)' : '') : bot ? 'Máy' : 'Trống';
     el.append(lb, nm);
-    if (free) {
-      const hint = document.createElement('em'); hint.textContent = 'Bấm để chuyển vào đây'; el.append(hint);
-      el.addEventListener('click', () => send({ t: 'seat', to: i }));
+    if (!on) {
+      const acts = document.createElement('div'); acts.className = 'seat-acts';
+      const btn = (text, fn, cls) => { const b = document.createElement('button'); b.textContent = text; if (cls) b.className = cls; b.addEventListener('click', fn); acts.append(b); };
+      btn('Chuyển vào đây', () => send({ t: 'seat', to: i }));
+      if (host) bot ? btn('Bỏ máy', () => setBot(i, false), 'rm') : btn('+ Thêm máy', () => setBot(i, true));
+      el.append(acts);
     }
     box.append(el);
   }
-  const guests = S.roster.some((v, i) => v && i !== me && i < S.n);
-  $('btnLobbyStart').disabled = !guests;
-  $('btnLobbyStart').textContent = guests ? 'BẮT ĐẦU' : 'CHỜ NGƯỜI VÀO';
+  const free = order.filter(i => !S.roster[i] && !S.bots[i]);
+  $('btnLobbyFill').hidden = !host || !free.length;
+  // Start once every spot has a player or a computer, even if you are the only person
+  $('btnLobbyStart').disabled = free.length > 0;
+  $('btnLobbyStart').textContent = free.length ? `CÒN ${free.length} GHẾ TRỐNG` : 'BẮT ĐẦU';
 }
+// Host: computers in empty spots, shared with everyone in the court so their lobby shows the same
+function setBot(i, on) {
+  if (S.mode !== 'host') return;
+  S.bots[i] = on; send({ t: 'bots', b: S.bots.map(Number) }); renderSeats();
+}
+$('btnLobbyFill').addEventListener('click', () => {
+  if (S.mode !== 'host') return;
+  for (let i = 0; i < S.n; i++) if (!S.roster[i]) S.bots[i] = true;
+  send({ t: 'bots', b: S.bots.map(Number) }); renderSeats();
+});
 function lanJoin() {
   readMenu(); setFormat(document.querySelector('input[name="lfmt"]:checked').value); ensureAudio();
   if (rooms[S.court] && rooms[S.court].full) { $('menuNote').textContent = `Sân ${S.court + 1} đã đủ người. Chọn sân khác.`; $('menuNote').hidden = false; return; }
@@ -1763,7 +1817,7 @@ function lanJoin() {
 }
 function lanEnd(msg) {
   const sock = ws; ws = null; if (sock) try { sock.close(); } catch (_) {}
-  S.mode = 'ai'; me = 0; S.human = [true, false, false, false]; S.roster = [1, 0, 0, 0]; S.names = ['', '', '', '']; S.looks = []; S.hostSeat = 0; updateTags(); updateLooks();
+  S.mode = 'ai'; me = 0; S.human = [true, false, false, false]; S.roster = [1, 0, 0, 0]; S.names = ['', '', '', '']; S.looks = []; S.bots = [false, false, false, false]; S.hostSeat = 0; updateTags(); updateLooks();
   for (const id of ['lobby', 'pause', 'result']) $(id).hidden = true;
   backToMenu();
   $('menuNote').textContent = msg; $('menuNote').hidden = !msg;
@@ -1777,13 +1831,13 @@ function onNet(m) {
     setFormat(m.fmt); setCourt((m.court | 0) - 1);
     if (S.mode === 'host') {
       placeBackdrop();
-      showLobby('Đang chờ người chơi', `Gửi link dưới đây cho bạn cùng chơi. Bạn ấy mở link, chọn sân ${S.court + 1} rồi bấm CHƠI LAN. Bấm vào ô trống để đổi vị trí, ô nào không có người thì máy đánh.`, m.urls || []);
-    } else showLobby('Đã vào sân', 'Bấm vào ô trống để chọn vị trí muốn chơi, rồi chờ chủ sân bắt đầu trận.', []);
+      showLobby('Đang chờ người chơi', `Gửi link dưới đây cho bạn cùng chơi. Bạn ấy mở link, chọn sân ${S.court + 1} rồi bấm CHƠI LAN. Thiếu người thì bấm + Thêm máy ở ghế trống, hoặc thêm máy vào tất cả ghế trống một lần.`, m.urls || []);
+    } else showLobby('Đã vào sân', 'Bấm Chuyển vào đây ở ghế trống để chọn vị trí muốn chơi, rồi chờ chủ sân bắt đầu trận.', []);
   } else if (m.t === 'roster') {
     const prevNames = S.names;
     S.roster = m.seats.map(Number); S.hostSeat = m.host | 0; S.names = (m.names || []).map(String); S.looks = (m.looks || []).map(cleanLook); updateLooks();
     if (me !== (m.you | 0)) { me = m.you | 0; lastIn = ''; updateHUD(); }
-    if (S.mode === 'host') syncHumans(prevNames);
+    if (S.mode === 'host') { syncHumans(prevNames); send({ t: 'bots', b: S.bots.map(Number) }); }
     if (!$('lobby').hidden) renderSeats();
     updateTags();
   } else if (m.t === 'full') { lanEnd(`Sân ${S.court + 1} đã đủ người. Chọn sân khác.`); refreshRooms(); }
@@ -1803,6 +1857,7 @@ function onNet(m) {
     else if (m.t === 'again' && S.state === 'over') newMatch();
   } else if (S.mode === 'guest') {
     if (m.t === 'st') applySnap(m); else if (m.t === 'ev') handleEv(m);
+    else if (m.t === 'bots') { S.bots = (m.b || []).map(Boolean); if (!$('lobby').hidden) renderSeats(); }
   }
 }
 // Host: a seat with a connected player is human, an empty one is played by the computer.
@@ -1872,6 +1927,130 @@ function guestTick(dt) {
 }
 $('btnPause').addEventListener('click', () => setPaused(!S.paused));
 $('btnSound').addEventListener('click', e => { muted = !muted; e.currentTarget.setAttribute('aria-pressed', String(!muted)); if (!muted) ensureAudio(); });
+
+/* ---------- other courts: live matches around the hall, and watching one ---------- */
+// The host of every court sends a light summary about 10 times a second. Every open page keeps a "watch"
+// connection that receives them for all courts, and draws each match with its own players on its own court.
+const GC = [];
+let watchWs = null, lastSum = 0, sumN = 0;
+const live = c => !!GC[c] && clock - GC[c].seen < 3;
+const liveCourts = () => [...Array(COURTS).keys()].filter(live);
+function ghostCourt(c) {
+  if (GC[c]) return GC[c];
+  const root = new THREE.Group(); courtG[c].add(root);
+  const ctx = { state: 'rally', server: 0, sh: { p: { x: 0, y: 0.03, z: 0 }, v: { x: 0, y: 0, z: 0 }, mode: 'rest' } };
+  const players = DEF_LOOKS.map((l, i) => Object.assign(makeAthlete(i, l, root), { tgt: null }));
+  const sh = shMesh.clone(); root.add(sh);
+  return (GC[c] = { c, root, ctx, players, sh, n: 2, seen: -1e9, names: [], hu: [], sc: [0, 0], g: [0, 0], gn: 1 });
+}
+function summary() {
+  const p = shuttle.p, v = shuttle.v, r2 = x => Math.round(x * 100) / 100;
+  const m = { t: 'sum', s: S.state, n: S.n, sc: S.score, g: S.games, gn: S.gameNo, sv: S.server,
+    a: ATH.slice(0, S.n).map(a => [r2(a.x), r2(a.z), r2(a.y), r2(a.vx), r2(a.vz), r3(a.swingT), SWK.indexOf(a.swingK), r2(a.vy)]),
+    sh: [r2(p.x), r2(p.y), r2(p.z), r2(v.x), r2(v.y), r2(v.z), MODES.indexOf(shuttle.mode)] };
+  // Names and looks change rarely: send them every 2 s
+  if (sumN++ % 20 === 0) m.info = { names: S.names.slice(0, S.n), hu: S.human.slice(0, S.n).map(Number), looks: ATH.slice(0, S.n).map(a => a.look) };
+  return m;
+}
+function onSum(m) {
+  const c = (m.c | 0) - 1;
+  if (c < 0 || c >= COURTS) return;
+  const G = ghostCourt(c);
+  G.seen = clock; G.n = m.n === 4 ? 4 : 2; G.ctx.state = m.s; G.ctx.server = m.sv | 0;
+  G.sc = m.sc || [0, 0]; G.g = m.g || [0, 0]; G.gn = m.gn || 1;
+  (m.a || []).forEach((d, i) => { const a = G.players[i]; if (!a) return; if (!a.tgt) { a.x = d[0]; a.z = d[1]; } a.tgt = d; });
+  const h = m.sh, sh = G.ctx.sh;
+  if (h) { Object.assign(sh.p, { x: h[0], y: h[1], z: h[2] }); Object.assign(sh.v, { x: h[3], y: h[4], z: h[5] }); sh.mode = MODES[h[6]] || 'rest'; }
+  if (m.info) {
+    G.names = (m.info.names || []).map(String); G.hu = m.info.hu || [];
+    G.players.forEach((a, i) => {
+      const l = cleanLook((m.info.looks || [])[i]) || DEF_LOOKS[i];
+      if (JSON.stringify(l) !== JSON.stringify(a.look)) { a.look = l; applyLook(a, l); }
+    });
+  }
+  if (S.mode === 'watch' && c === S.court) watchHUD();
+}
+function onSumEnd(court) {
+  const c = (court | 0) - 1, G = GC[c];
+  if (G) G.seen = -1e9;
+  if (S.mode === 'watch' && c === S.court) {
+    const next = liveCourts()[0];
+    if (next != null) startWatch(next); else exitWatch(`Trận ở sân ${c + 1} đã kết thúc.`);
+  }
+}
+function watchConnect() {
+  if (!window.SAN7_LAN) return;
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  let sock;
+  try { sock = new WebSocket(`${proto}://${location.host}/ws?watch=1`); } catch (e) { return; }
+  watchWs = sock;
+  sock.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (_) { return; } if (m.t === 'sum') onSum(m); else if (m.t === 'sumEnd') onSumEnd(m.c); };
+  sock.onclose = () => { if (watchWs === sock) { watchWs = null; setTimeout(watchConnect, 3000); } };
+}
+function updateGhosts(dt) {
+  for (const G of GC) {
+    if (!G) continue;
+    // Your own court shows your own match, unless you are only watching it
+    const show = live(G.c) && (G.c !== S.court || S.mode === 'watch');
+    G.root.visible = show;
+    if (!show) continue;
+    const k = 1 - Math.exp(-dt * 12), sh = G.ctx.sh;
+    if (sh.mode === 'fly') { for (let t = dt; t > 0; t -= DT) stepShuttle(sh.p, sh.v, Math.min(DT, t)); if (sh.p.y < 0.03) sh.p.y = 0.03; }
+    G.players.forEach((a, i) => {
+      a.g.visible = i < G.n && !!a.tgt;
+      if (!a.g.visible) return;
+      const d = a.tgt;
+      if (a.y > 0 && d[2] <= 0) a.landT = LAND_T; else if (a.landT > 0) a.landT -= dt;
+      a.x += (d[0] - a.x) * k; a.z += (d[1] - a.z) * k; a.y = d[2]; a.vx = d[3]; a.vz = d[4]; a.vy = d[7] || 0;
+      if (d[5] >= 0 && (a.swingT < 0 || Math.abs(a.swingT - d[5]) > 0.15)) a.swingT = d[5];
+      a.swingK = SWK[d[6]] || 'over';
+      animateAthlete(a, dt, i, G.ctx);
+      setTag(a, G.hu[i] ? G.names[i] || 'Người chơi' : '');
+    });
+    G.sh.position.set(sh.p.x, sh.p.y, sh.p.z);
+    const sp = Math.hypot(sh.v.x, sh.v.y, sh.v.z);
+    if (sh.mode === 'fly' && sp > 0.3) { tmpV.set(-sh.v.x / sp, -sh.v.y / sp, -sh.v.z / sp); G.sh.quaternion.setFromUnitVectors(UP, tmpV); }
+    else if (sh.mode === 'rest') G.sh.quaternion.setFromUnitVectors(UP, LYING);
+  }
+}
+// Watching: the camera moves to that court as a spectator; you can flip between live courts
+function startWatch(c) {
+  if (!live(c)) return;
+  S.mode = 'watch'; S.state = 'menu'; S.paused = false;
+  $('menu').hidden = true; document.body.classList.add('watching'); $('watchBar').hidden = false;
+  for (const a of ATH) a.g.visible = false;
+  shMesh.visible = blob.visible = false; hideRing();
+  setCourt(c);
+}
+function exitWatch(msg) {
+  S.mode = 'ai'; document.body.classList.remove('watching'); $('watchBar').hidden = true;
+  ATH[0].g.visible = ATH[1].g.visible = true; shMesh.visible = blob.visible = true;
+  backToMenu();
+  if (msg) { $('menuNote').textContent = msg; $('menuNote').hidden = false; showTab(true); }
+}
+function cycleWatch(dir) {
+  const list = liveCourts();
+  if (list.length < 2) return;
+  const i = list.indexOf(S.court);
+  startWatch(list[(i + dir + list.length) % list.length]);
+}
+function watchHUD() {
+  const G = GC[S.court];
+  if (!G) return;
+  const side = t => [t, t + 2].filter(i => i < G.n).map(i => G.hu[i] ? G.names[i] || 'Người chơi' : 'Máy').join(' · ').toUpperCase();
+  $('nmP').textContent = side(0); $('nmA').textContent = side(1);
+  $('pP').textContent = G.sc[0]; $('pA').textContent = G.sc[1]; $('gP').textContent = G.g[0]; $('gA').textContent = G.g[1];
+  $('dotP').classList.toggle('on', team(G.ctx.server) === 0); $('dotA').classList.toggle('on', team(G.ctx.server) === 1);
+  $('cP').style.background = 'var(--you)'; $('cA').style.background = 'var(--cpu)';
+  $('metaL').textContent = `ĐANG XEM SÂN ${S.court + 1}`; $('metaR').textContent = `VÁN ${G.gn} / 3`;
+  $('watchTitle').textContent = `Đang xem sân ${S.court + 1} · ${G.n === 4 ? 'đánh đôi' : 'đánh đơn'}`;
+  $('watchPrev').disabled = $('watchNext').disabled = liveCourts().length < 2;
+}
+$('btnWatch').addEventListener('click', () => startWatch(menuCourt()));
+$('watchExit').addEventListener('click', () => exitWatch(''));
+$('watchPrev').addEventListener('click', () => cycleWatch(-1));
+$('watchNext').addEventListener('click', () => cycleWatch(1));
+watchConnect();
 
 /* ---------- loop ---------- */
 function resize() {
@@ -1950,6 +2129,16 @@ function syncVisuals(dt) {
   blob.scale.setScalar(1 + p.y * 0.18); blob.material.opacity = 0.35 / (1 + p.y * 0.35);
   if (ring.visible && !reduceMotion) ring.scale.setScalar(1 + Math.sin(clock * 8) * 0.08);
 
+  if (S.mode === 'watch') {
+    // Spectator seat behind the near baseline, centred on the court
+    const portrait = camera.aspect < 0.9, k = 1 - Math.exp(-dt * 3);
+    camera.position.x += (0 - camera.position.x) * k;
+    camera.position.y += ((portrait ? 8.6 : 6.6) - camera.position.y) * k;
+    camera.position.z += ((portrait ? 14.2 : 13.4) - camera.position.z) * k;
+    look.x += (0 - look.x) * k; look.y += (0.6 - look.y) * k; look.z += ((portrait ? -0.6 : -1.2) - look.z) * k;
+    camera.lookAt(look); meMark.visible = false;
+    return;
+  }
   const mine = ath(me), s = mine.side;
   meMark.visible = S.n === 4 && S.state !== 'menu';
   meMark.position.x = mine.x; meMark.position.z = mine.z;
@@ -1969,6 +2158,7 @@ function frame(now) {
   if (S.mode === 'guest') guestTick(dt);
   else if (active && !S.paused) update(dt);
   if (S.mode === 'host' && now - lastSent > 14) { lastSent = now; send(snapshot()); }
+  if (S.mode === 'host' && S.state !== 'menu' && now - lastSum > 100) { lastSum = now; send(summary()); }
   const credit = (overlayOpen() || !$('pause').hidden) && !$('custom').classList.contains('open');
   if (credit === $('credit').hidden) $('credit').hidden = !credit;
   if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('show'); }
@@ -1977,11 +2167,13 @@ function frame(now) {
   const st = ath(me).sta;
   if (Math.abs(st - shownSta) > 0.004) { shownSta = st; $('staBar').style.transform = `scaleX(${st})`; $('sta').classList.toggle('low', st < 0.3); }
   syncVisuals(S.paused ? 0 : dt);
+  updateGhosts(dt);
   renderer.render(scene, camera);
   renderPreview();
 }
 
 readMenu(); placeBackdrop();
+if (window.SAN7_LAN) renderCourts();
 if (document.fonts && document.fonts.load) document.fonts.load('700 150px "Chakra Petch"').then(drawSigns).catch(() => {});
 
 function start(data) {

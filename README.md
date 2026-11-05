@@ -20,11 +20,12 @@ Mở tab **Chơi với người** trong menu. Tab này liệt kê 5 sân: sân n
 
 - **Tên:** hiện ở đúng vị trí người đó đứng trong phòng chờ, trên đầu nhân vật lúc đánh, và trong các thông báo cú đánh. Tên được nhớ trên máy cho lần sau.
 - **Nhân vật:** bảng bên trái menu cho đổi màu áo, quần, da, tóc, vợt và kiểu tóc (trên điện thoại bấm nút **Nhân vật**). Lựa chọn được nhớ trên máy. Khi chơi LAN, mọi người trong sân thấy đúng nhân vật bạn chọn, ghế do máy đánh mặc màu mặc định.
+- **Xem các sân khác:** lúc đang đánh, các sân bên cạnh hiện trận thật của người khác (có bảng tên). Trong tab **Chơi với người**, chọn một sân đang đấu rồi bấm **XEM SÂN n** để xem như khán giả. Phím ◀ ▶ (hoặc A / D) để chuyển sân, Esc để thoát.
 - **Số người online:** góc trên bên phải hiện số người đang mở game trên mạng LAN, cả người chưa vào sân. Tab **Chơi với người** có số người đang ở trong sân.
 - **Sân đầy:** danh sách sân ghi "đã đầy" và nút vào sân bị khoá. Server cũng từ chối nếu ai đó cố vào.
 
-- **Chủ sân:** người vào sân trống đầu tiên. Thể thức chủ sân chọn (đơn hay đôi) áp dụng cho cả sân, và chủ sân bấm **BẮT ĐẦU** khi đã có ít nhất một người vào.
-- **Số người:** đánh đơn 2 người. Đánh đôi tối đa 4 người, ghế trống do máy đánh.
+- **Chủ sân:** người vào sân trống đầu tiên. Thể thức chủ sân chọn (đơn hay đôi) áp dụng cho cả sân, và chủ sân bấm **BẮT ĐẦU** khi mọi ghế đã có người hoặc máy.
+- **Số người:** đánh đơn 2 người, đánh đôi tối đa 4 người. Thiếu người thì chủ sân bấm **+ Thêm máy** ở ghế trống, hoặc **+ THÊM MÁY VÀO GHẾ TRỐNG** để điền hết một lần. Chỉ có một mình chủ sân cũng chơi được. Trận chỉ bắt đầu khi mọi ghế đã có người hoặc máy.
 - **Chọn vị trí:** trong phòng chờ, bấm vào một ô còn trống (sân gần hoặc sân xa, ô phải hoặc ô trái) để chuyển vào đó. Chủ sân cũng đổi được. Người mới vào được xếp tạm vào ô trống đầu tiên. Chỉ đổi được trước khi bấm **BẮT ĐẦU**.
 - **Vào, ra giữa trận:** có người vào giữa trận thì thay máy ở ghế trống. Có người rời thì máy đánh tiếp ghế đó. Chủ sân rời thì sân đóng lại.
 - **5 sân là 5 phòng riêng:** 5 trận chạy cùng lúc được. Menu hiện số người đang ở mỗi sân.
