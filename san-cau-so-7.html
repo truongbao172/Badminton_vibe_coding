@@ -24,6 +24,7 @@ html,body{height:100%}
 [hidden]{display:none!important}
 body{background:var(--hall);color:var(--ink);font-family:var(--body);overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 #c{position:fixed;inset:0;width:100%;height:100%;display:block}
+#vignette{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse 75% 70% at 50% 58%,transparent 55%,rgba(4,10,18,.5) 100%)}
 button{font:inherit;color:inherit}
 button:focus-visible,.seg input:focus-visible+label,.check input:focus-visible{outline:2px solid var(--led);outline-offset:2px}
 
@@ -256,6 +257,7 @@ body.watching #hint,body.watching .touch-ctl,body.watching #sta,body.watching #p
 </style>
 
 <canvas id="c" aria-label="Sân cầu lông 3D"></canvas>
+<div id="vignette" aria-hidden="true"></div>
 
 <div class="hud">
   <div class="top">
@@ -540,7 +542,7 @@ const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
 camera.position.set(0, 5, 12.4);
 const look = new THREE.Vector3(0, 0.9, -2.2);
 
-scene.add(new THREE.HemisphereLight(0xe6eeff, 0x40301f, 0.7));
+const hemi = new THREE.HemisphereLight(0xe6eeff, 0x40301f, 0.7); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff4e4, 0.85);
 sun.position.set(3, 14, 5); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 11, bottom: -11, near: 1, far: 40 });
@@ -633,7 +635,7 @@ const wood = canvasTex(512, 512, (g, w, h) => {
   }
 });
 wood.wrapS = wood.wrapT = THREE.RepeatWrapping; wood.repeat.set(HALL_W / 4, 8);
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(HALL_W, 32), new THREE.MeshStandardMaterial({ map: wood, roughness: 0.55 }));
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(HALL_W, 32), new THREE.MeshStandardMaterial({ map: wood, roughness: 0.42 })); // varnished: catches the lamps
 floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; hallG.add(floor);
 
 // Court mat with full BWF line markings (singles + doubles)
@@ -651,13 +653,13 @@ const courtTex = canvasTex(Math.round(MAT_W * PX), Math.round(MAT_L * PX), (g, w
   }
   vline(0, -C.baseZ, -C.shortZ); vline(0, C.shortZ, C.baseZ);
 });
-const matMat = new THREE.MeshStandardMaterial({ map: courtTex, roughness: 0.85 });
+const matMat = new THREE.MeshStandardMaterial({ map: courtTex, roughness: 0.78 });
 const netTex = canvasTex(64, 64, (g, w, h) => { g.strokeStyle = 'rgba(16,20,24,.95)'; g.lineWidth = 4; g.strokeRect(0, 0, w, h); });
 netTex.wrapS = netTex.wrapT = THREE.RepeatWrapping; netTex.repeat.set(6.1 / 0.06, 0.76 / 0.06);
 const netMat = new THREE.MeshBasicMaterial({ map: netTex, transparent: true, side: THREE.DoubleSide, depthWrite: false });
 const tapeMat = new THREE.MeshStandardMaterial({ color: 0xf4f4f0, roughness: 0.6 });
 const postMat = new THREE.MeshStandardMaterial({ color: 0x24443a, roughness: 0.5 });
-const lampMat = new THREE.MeshBasicMaterial({ color: 0xfff2d4 });
+const lampMat = new THREE.MeshBasicMaterial({ color: 0xfff2d4, toneMapped: false });
 const courtX = i => (i - (COURTS - 1) / 2) * SPACING;
 const signs = [], courtG = [];
 for (let i = 0; i < COURTS; i++) {
@@ -679,22 +681,66 @@ for (let i = 0; i < COURTS; i++) {
   }
   // Court number board on both end walls
   const tex = canvasTex(1024, 256, () => {});
-  const sg = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 1.6), new THREE.MeshBasicMaterial({ map: tex }));
+  const sg = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 1.6), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
   sg.position.set(0, 4.4, -15.9); cg.add(sg);
   const sg2 = sg.clone(); sg2.position.z = 15.9; sg2.rotation.y = Math.PI; cg.add(sg2);
   signs.push(tex);
 }
 
 // Hall shell and venue banner
-const hall = new THREE.Mesh(new THREE.BoxGeometry(HALL_W, 10, 32), new THREE.MeshStandardMaterial({ color: 0x15293b, roughness: 1, side: THREE.BackSide }));
+// Walls: 4 m acoustic panels, darker towards the unlit ceiling, with a lighter band at eye level
+const wallTex = canvasTex(256, 640, (g, w, h) => {
+  const gr = g.createLinearGradient(0, 0, 0, h);
+  gr.addColorStop(0, '#08121c'); gr.addColorStop(0.45, '#12263a'); gr.addColorStop(0.8, '#1a3550'); gr.addColorStop(1, '#152c42');
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 26; i++) { g.fillStyle = i % 2 ? 'rgba(255,255,255,.025)' : 'rgba(0,0,0,.06)'; g.fillRect(8 + i * 9.5, h * 0.32, 6, h * 0.52); } // slats
+  g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(0, 0, 3, h); g.fillRect(0, h * 0.32 - 2, w, 3); g.fillRect(0, h * 0.84, w, 3); // panel seams
+  g.fillStyle = 'rgba(120,170,210,.10)'; g.fillRect(0, h * 0.84 + 3, w, 4); // light catching the bottom edge
+});
+wallTex.wrapS = THREE.RepeatWrapping;
+const wallLong = wallTex, wallEnd = wallTex.clone(); wallEnd.needsUpdate = true;
+wallLong.repeat.set(HALL_W / 4, 1); wallEnd.repeat.set(32 / 4, 1);
+const wallMat = t => new THREE.MeshStandardMaterial({ map: t, roughness: 0.92, side: THREE.BackSide });
+const ceilMat = new THREE.MeshStandardMaterial({ color: 0x070d14, roughness: 1, side: THREE.BackSide });
+// Box faces: +x, -x, +y (ceiling), -y (under the floor), +z, -z
+const hall = new THREE.Mesh(new THREE.BoxGeometry(HALL_W, 10, 32), [wallMat(wallEnd), wallMat(wallEnd), ceilMat, ceilMat, wallMat(wallLong), wallMat(wallLong)]);
 hall.position.y = 4.98; hallG.add(hall);
-const kick = new THREE.Mesh(new THREE.BoxGeometry(HALL_W, 0.9, 0.05), new THREE.MeshStandardMaterial({ color: 0x1e3a52, roughness: 0.9 }));
+const kick = new THREE.Mesh(new THREE.BoxGeometry(HALL_W, 0.9, 0.05), new THREE.MeshStandardMaterial({ color: 0x13283b, roughness: 0.9 }));
 kick.position.set(0, 0.45, -15.95); hallG.add(kick);
 const kick2 = kick.clone(); kick2.position.z = 15.95; hallG.add(kick2);
 const bannerTex = canvasTex(2048, 256, () => {});
-const banner = new THREE.Mesh(new THREE.PlaneGeometry(16, 2), new THREE.MeshBasicMaterial({ map: bannerTex }));
+const banner = new THREE.Mesh(new THREE.PlaneGeometry(16, 2), new THREE.MeshBasicMaterial({ map: bannerTex, toneMapped: false }));
 banner.position.set(0, 7.6, -15.9); hallG.add(banner);
 const banner2 = banner.clone(); banner2.position.z = 15.9; banner2.rotation.y = Math.PI; hallG.add(banner2);
+
+/* ---------- look: tone mapping, light reflected from the hall, a lamp over the match court ---------- */
+// ACES tone mapping rolls bright areas off like film instead of clipping them. Signs, banner, lamps and
+// the on-court markers opt out (toneMapped: false) so they keep their exact colours.
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+// Image-based light: a small stand-in hall (dark walls, wood floor, rows of bright ceiling lamps) is
+// rendered once into a blurred environment map. Every MeshStandardMaterial then picks up soft light and
+// reflections from it: a sheen on the varnished floor, highlights on rackets, shirts and shoes.
+{
+  const env = new THREE.Scene(), basic = (c, k = 1) => new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(k), side: THREE.BackSide });
+  const room = new THREE.Mesh(new THREE.BoxGeometry(50, 10, 32), [basic(0x12263a), basic(0x12263a), basic(0x070d14), basic(0x6a4a30, 0.6), basic(0x12263a), basic(0x12263a)]);
+  room.position.y = 4; env.add(room); // the cube camera sits at the origin, about player height above the floor
+  const lamp = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xfff2d4).multiplyScalar(3.5) });
+  for (let x = -20; x <= 20; x += 4.3) for (let z = -12; z <= 12; z += 4) {
+    const l = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.1, 0.45), lamp); l.position.set(x, 8.6, z); env.add(l);
+  }
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(env, 0.04).texture;
+  pmrem.dispose();
+  env.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+}
+// The environment now supplies most of the fill, so the old flat fill lights step back
+hemi.intensity = 0.26; fill.intensity = 0.15; sun.intensity = 0.6;
+// One soft lamp right above the match court (the match is always at the origin): the court you play on is
+// a pool of light and the neighbouring courts and walls fall off into the dark, which gives the scene depth.
+const courtLamp = new THREE.SpotLight(0xfff1dc, 1.5, 34, 0.56, 0.9, 1);
+courtLamp.position.set(0, 13, 0); courtLamp.target.position.set(0, 0, 0);
+scene.add(courtLamp, courtLamp.target);
 // Format shown on the chosen court's board: the watched match while watching, otherwise your own
 const shownN = () => S.mode === 'watch' && GC[S.court] ? GC[S.court].n : S.n;
 function drawSigns() {
@@ -1022,7 +1068,7 @@ function makeTag(a) {
   const cv = document.createElement('canvas'); cv.width = 512; cv.height = 96;
   const tex = new THREE.CanvasTexture(cv); tex.encoding = THREE.sRGBEncoding;
   // Same size on screen however far away the player is
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false, fog: false, sizeAttenuation: false }));
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false, fog: false, sizeAttenuation: false, toneMapped: false }));
   sp.scale.set(0.2, 0.0375, 1); sp.position.y = 2.15; sp.renderOrder = 5; sp.visible = false; a.g.add(sp);
   a.tag = { sp, cv, tex, text: '' };
 }
@@ -1217,10 +1263,10 @@ const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.013, 0.062, 16,
 shMesh.scale.setScalar(2.4); shMesh.traverse(o => { o.castShadow = true; }); scene.add(shMesh);
 const blob = new THREE.Mesh(new THREE.CircleGeometry(0.12, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false }));
 blob.rotation.x = -Math.PI / 2; blob.position.y = 0.012; scene.add(blob);
-const ring = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.27, 40), new THREE.MeshBasicMaterial({ color: 0xffb547, transparent: true, opacity: 0.85, depthWrite: false }));
+const ring = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.27, 40), new THREE.MeshBasicMaterial({ color: 0xffb547, transparent: true, opacity: 0.85, depthWrite: false, toneMapped: false }));
 ring.rotation.x = -Math.PI / 2; ring.position.y = 0.015; ring.visible = false; scene.add(ring);
 // White circle under your own player in doubles, so you can tell yourself from your partner
-const meMark = new THREE.Mesh(new THREE.RingGeometry(0.36, 0.42, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, depthWrite: false }));
+const meMark = new THREE.Mesh(new THREE.RingGeometry(0.36, 0.42, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, depthWrite: false, toneMapped: false }));
 meMark.rotation.x = -Math.PI / 2; meMark.position.y = 0.013; meMark.visible = false; scene.add(meMark);
 const TRAIL = 26, trailPos = new Float32Array(TRAIL * 3), trailGeo = new THREE.BufferGeometry();
 trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));
@@ -1977,7 +2023,10 @@ function updateLooks() { ATH.forEach((a, i) => { const l = lookOf(i); if (a.look
 const pv = { canvas: $('preview'), w: 0, h: 0, zoomUntil: 0, zoom: 0 };
 pv.renderer = new THREE.WebGLRenderer({ canvas: pv.canvas, antialias: true, alpha: true });
 pv.renderer.outputEncoding = THREE.sRGBEncoding; pv.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+pv.renderer.toneMapping = renderer.toneMapping; pv.renderer.toneMappingExposure = renderer.toneMappingExposure;
 pv.scene = new THREE.Scene();
+// The environment map belongs to the main renderer's WebGL context, so the preview gets its own copy of the light
+pv.scene.add(new THREE.AmbientLight(0x9fb4c8, 0.25));
 pv.scene.add(new THREE.HemisphereLight(0xe6eeff, 0x40301f, 0.85));
 const pvSun = new THREE.DirectionalLight(0xfff4e4, 0.9); pvSun.position.set(2, 4, 4); pv.scene.add(pvSun);
 pv.cam = new THREE.PerspectiveCamera(28, 1, 0.1, 20); pv.cam.position.set(0, 1.15, 5.2); pv.cam.lookAt(0, 1.05, 0);
