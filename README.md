@@ -46,5 +46,9 @@ Lần đầu chạy, server tải Three.js về thư mục `vendor/`. Từ lần
 - **Vai trò của `server.js`:** giữ danh sách người ở 5 sân và chuyển tin giữa chủ sân với những người còn lại.
 
 `san-cau-so-7.html` vừa là trang game, vừa là nội dung của bản Artifact trên claude.ai. Bản Artifact chỉ chơi được với máy, vì trang Artifact không được mở kết nối mạng.
+
 # Badminton_vibe_coding
+
 # Badminton_vibe_coding
+
+tesst
