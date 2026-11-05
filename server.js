@@ -120,19 +120,27 @@ function roster(r) {
   for (const p of r.seats) if (p) p.json({ t: 'roster', seats, names, looks, host, you: p.seat });
 }
 
+// Nhịp tim: 2 giây một lần server gửi {"t":"hb"} cho mọi người trong sân. Trang game không nhận được gì
+// trong 6 giây thì biết kết nối đã chết (Wi‑Fi chập chờn thường làm TCP chết lặng lẽ, không bên nào hay)
+// và tự kết nối lại, thay vì đứng hình chờ mãi.
+const peers = new Set();
+const HB = wsFrame(1, Buffer.from('{"t":"hb"}'));
+setInterval(() => { for (const p of peers) if (p.open && !p.watch) p.sock.write(HB); }, 2000).unref();
+
 class Peer {
   constructor(sock) {
-    this.sock = sock; this.buf = Buffer.alloc(0); this.frag = null; this.open = true; this.room = null; this.seat = -1; this.court = 0; this.name = ''; this.look = null;
-    // Ping mỗi 25 giây để proxy (Render, Nginx…) không cắt kết nối khi đang ngồi chờ trong phòng.
+    this.sock = sock; this.buf = Buffer.alloc(0); this.frag = null; this.open = true; this.room = null; this.seat = -1; this.court = 0; this.name = ''; this.look = null; this.id = '';
+    peers.add(this);
+    // Ping mỗi 10 giây (cũng giữ cho proxy như Render, Nginx… không cắt kết nối khi ngồi chờ).
     // Trình duyệt tự trả pong; qua một lượt ping mà không nhận được gì thì coi như đã mất (tắt Wi‑Fi,
-    // điện thoại ngủ…) và cắt để trả ghế, thay vì giữ ghế đến khi hệ điều hành tự đóng TCP.
+    // máy ngủ, tab bị trình duyệt tạm dừng…) và cắt để trả ghế, thay vì giữ ghế đến khi hệ điều hành tự đóng TCP.
     this.alive = true;
     this.ping = setInterval(() => {
       if (!this.open) return;
       if (!this.alive) { this.sock.destroy(); return; }
       this.alive = false;
       this.sock.write(wsFrame(9, Buffer.alloc(0)));
-    }, 25000);
+    }, 10000);
     sock.on('data', d => { this.alive = true; this.onData(d); });
     // Phía kia chỉ đóng TCP (FIN) mà không gửi khung close, ví dụ bấm Huỷ lúc đang kết nối:
     // socket sau khi nâng cấp không tự đóng, nên phải tự cắt, nếu không ghế bị giữ mãi.
@@ -211,6 +219,7 @@ class Peer {
   }
   onClose() {
     this.open = false;
+    peers.delete(this);
     clearInterval(this.ping);
     if (this.watch) { watchers.delete(this); return; }
     this.leave();
@@ -252,10 +261,27 @@ server.on('upgrade', (req, sock) => {
   // Tên hiển thị: bỏ ký tự điều khiển, tối đa 16 ký tự
   p.name = (u.searchParams.get('name') || '').replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, 16) || 'Người chơi';
   p.look = parseLook(u.searchParams.get('look'));
+  // Mã của trang (mỗi lần mở trang một mã). Trang kết nối lại sau khi rớt mạng gửi lại đúng mã này, kèm ghế cũ.
+  p.id = (u.searchParams.get('id') || '').replace(/[^a-z0-9]/gi, '').slice(0, 24);
+  const want = parseInt(u.searchParams.get('seat'), 10);
+  // Kết nối cũ của chính trang này có thể vẫn đang giữ ghế (TCP chết lặng lẽ, server chưa hay biết):
+  // cắt nó và trả ghế cho kết nối mới ngay, không bắt chờ hết lượt ping rồi báo sân đầy.
+  const stale = p.id && r.seats.find(q => q && q.id === p.id);
+  let reclaim = -1;
+  if (stale) {
+    if (stale === r.host) stale.leave(); // chủ sân rời thì sân đóng như cũ
+    else { reclaim = stale.seat; r.seats[stale.seat] = null; stale.room = null; }
+    stale.open = false; stale.sock.destroy();
+    console.log(`Sân ${court}: ${p.name} kết nối lại, bỏ kết nối cũ.`);
+  }
   let seat = -1;
   // Người đầu tiên vào sân trống làm chủ sân và chọn thể thức; người sau theo thể thức đó.
   if (!count(r)) { r.fmt = u.searchParams.get('fmt') === 'doi' ? 'doi' : 'don'; r.started = false; r.host = p; seat = 0; }
-  else for (let i = 0; i < cap(r); i++) if (!r.seats[i]) { seat = i; break; }
+  else {
+    // Kết nối lại: về đúng ghế cũ nếu ghế đó còn trống
+    for (const s of [reclaim, want]) if (seat < 0 && s >= 0 && s < cap(r) && !r.seats[s]) seat = s;
+    for (let i = 0; seat < 0 && i < cap(r); i++) if (!r.seats[i]) seat = i;
+  }
   // Sân đủ người thì không cho vào
   if (seat < 0) { p.json({ t: 'full' }); p.close(); console.log(`Sân ${court}: đã đủ người, từ chối ${p.name}.`); return; }
   r.seats[seat] = p; p.room = r; p.seat = seat; p.court = court;
