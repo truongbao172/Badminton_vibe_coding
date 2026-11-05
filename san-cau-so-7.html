@@ -213,6 +213,7 @@ button.seat em{font-style:normal;font-size:12px;color:var(--led)}
 .ghost.mini{flex:0 0 auto;padding:6px 10px;font-size:12px;letter-spacing:.06em}
 .mhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
 .mbtns{display:flex;gap:6px;flex:0 0 auto}
+@media (max-width:560px){ .mbtns{flex-direction:column;align-items:stretch} }
 /* Key bindings: action | main key | second key */
 .binds{display:grid;grid-template-columns:minmax(0,1fr) 96px 96px;gap:6px 8px;align-items:center}
 .binds .bl{font-size:14px;line-height:1.3}
@@ -248,6 +249,7 @@ body.watching #hint,body.watching .touch-ctl,body.watching #sta,body.watching #p
 #btnWatch{flex:0 0 auto}
 #nmP,#nmA{display:inline-block;max-width:170px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
 /* Author credit: bottom-right, only while a menu screen is open */
+#fpsMeter{position:fixed;z-index:22;left:max(14px,env(safe-area-inset-left,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 10px);font:600 12px/1.4 var(--display);letter-spacing:.04em;font-variant-numeric:tabular-nums;color:var(--ink);background:var(--panel);border:1px solid var(--edge);border-radius:6px;padding:3px 8px;pointer-events:none}
 #credit{position:fixed;z-index:21;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 10px);font-size:11.5px;letter-spacing:.04em;color:var(--muted);opacity:.75;pointer-events:none}
 #credit b{color:var(--ink);font-weight:600}
 @media (prefers-reduced-motion:reduce){ #toast,#shot{transition:none} }
@@ -294,6 +296,7 @@ body.watching #hint,body.watching .touch-ctl,body.watching #sta,body.watching #p
   </div>
 </div>
 
+<div id="fpsMeter" hidden></div>
 <div id="credit">Thực hiện: <b>Bao Truong - Anh Nguyen</b> · Terralogic</div>
 
 <div class="overlay" id="menu">
@@ -320,7 +323,7 @@ body.watching #hint,body.watching .touch-ctl,body.watching #sta,body.watching #p
         <h1>Sân Cầu Terralogic</h1>
         <p>Ván 21 điểm, phải hơn 2 điểm mới thắng ván, chạm 30 là thắng ngay. Thắng 2 ván là thắng trận.</p>
       </div>
-      <div class="mbtns"><button class="ghost mini only-desk" id="btnKeys">Phím</button><button class="ghost mini" id="btnCustom">Nhân vật</button></div>
+      <div class="mbtns"><button class="ghost mini" id="btnGfx" title="Chất lượng đồ hoạ. Bấm để đổi">Đồ hoạ: Tự động</button><button class="ghost mini only-desk" id="btnKeys">Phím</button><button class="ghost mini" id="btnCustom">Nhân vật</button></div>
     </div>
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" id="tabAi" aria-controls="panelAi" aria-selected="true">Chơi với máy</button>
@@ -368,6 +371,7 @@ body.watching #hint,body.watching .touch-ctl,body.watching #sta,body.watching #p
           <dt><kbd data-k="jump">Space</kbd><kbd data-k="hit">J</kbd></dt><dd>Nhảy rồi giữ <kbd data-k="hit">J</kbd> khi cầu cao để bật nhảy đập</dd>
           <dt><kbd data-k="left">A</kbd><kbd data-k="right">D</kbd></dt><dd>Giữ lúc chạm cầu để đánh về góc</dd>
           <dt><kbd>Esc</kbd></dt><dd>Tạm dừng</dd>
+          <dt><kbd>F3</kbd></dt><dd>Hiện hoặc ẩn số FPS</dd>
         </dl>
         <dl class="keys only-touch">
           <dt><kbd>Cần trái</kbd></dt><dd>Di chuyển, nghiêng khi đánh để đưa cầu về góc</dd>
@@ -419,7 +423,7 @@ body.watching #hint,body.watching .touch-ctl,body.watching #sta,body.watching #p
   <div class="card">
     <div class="titleblock"><div class="eyebrow" id="pauseInfo">Ván 1</div><h2>Tạm dừng</h2></div>
     <div class="row"><button class="primary" id="btnResume">TIẾP TỤC</button><button class="ghost" id="btnQuit">Bỏ trận</button></div>
-    <div class="row only-desk"><button class="ghost" id="btnPauseKeys">Đổi phím</button></div>
+    <div class="row"><button class="ghost" id="btnPauseGfx" title="Chất lượng đồ hoạ. Bấm để đổi">Đồ hoạ: Tự động</button><button class="ghost only-desk" id="btnPauseKeys">Đổi phím</button></div>
   </div>
 </div>
 
@@ -527,10 +531,8 @@ function boxOut(x, z) {
 /* ---------- renderer & scene ---------- */
 const canvas = $('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.outputEncoding = THREE.sRGBEncoding;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled = true; // resolution and shadow quality are set by applyGfx below
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0d1b29);
 scene.fog = new THREE.Fog(0x0d1b29, 22, 46);
@@ -545,6 +547,67 @@ Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 11, bottom: -11, nea
 sun.shadow.bias = -0.0005;
 scene.add(sun);
 const fill = new THREE.DirectionalLight(0xbcd6ff, 0.3); fill.position.set(-5, 8, -8); scene.add(fill);
+
+/* ---------- graphics quality ---------- */
+// Measured on an M1 Pro: drawing the frame costs the GPU ~7.8 ms at 2× resolution and ~4.6 ms at 1×, while the
+// game logic costs ~1 ms. So quality is mostly resolution. 'auto' starts sharp and, while frames keep running
+// slower than ~50 FPS, steps the resolution down by 0.25 (never back up in the same session, so it cannot flicker).
+const GFX_KEY = 'san7-gfx', FPS_KEY = 'san7-fps', DPR = window.devicePixelRatio || 1;
+const GFX_ORDER = ['auto', 'cao', 'vua', 'thap'];
+const GFX_NAMES = { auto: 'Tự động', cao: 'Cao', vua: 'Vừa', thap: 'Thấp' };
+const GFX_PRESETS = { auto: { pr: 2, shadow: 2048, soft: true }, cao: { pr: 2, shadow: 2048, soft: true }, vua: { pr: 1.5, shadow: 2048, soft: false }, thap: { pr: 1, shadow: 1024, soft: false } };
+const gfx = { mode: 'auto', pr: 1, hold: 0, sum: 0, n: 0, show: false, fSum: 0, fN: 0, fT: 0 };
+try { const v = localStorage.getItem(GFX_KEY); if (GFX_NAMES[v]) gfx.mode = v; gfx.show = localStorage.getItem(FPS_KEY) === '1'; } catch (e) {}
+function applyGfx() {
+  const p = GFX_PRESETS[gfx.mode];
+  gfx.pr = Math.min(DPR, p.pr);
+  renderer.setPixelRatio(gfx.pr);
+  const type = p.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+  if (renderer.shadowMap.type !== type) {
+    renderer.shadowMap.type = type;
+    scene.traverse(o => { if (o.material) [].concat(o.material).forEach(m => { m.needsUpdate = true; }); }); // rebuild shaders for the new filter
+  }
+  if (sun.shadow.mapSize.x !== p.shadow) {
+    sun.shadow.mapSize.set(p.shadow, p.shadow);
+    if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+  }
+  gfx.hold = performance.now() + 3000; gfx.sum = gfx.n = 0; // let the new setting settle before judging it
+  gfxLabels();
+}
+function gfxLabels() {
+  const t = `Đồ hoạ: ${GFX_NAMES[gfx.mode]}`;
+  for (const id of ['btnGfx', 'btnPauseGfx']) { const b = $(id); if (b) b.textContent = t; }
+  $('fpsMeter').hidden = !gfx.show;
+}
+function cycleGfx() {
+  gfx.mode = GFX_ORDER[(GFX_ORDER.indexOf(gfx.mode) + 1) % GFX_ORDER.length];
+  try { localStorage.setItem(GFX_KEY, gfx.mode); } catch (e) {}
+  applyGfx();
+}
+function toggleFps() {
+  gfx.show = !gfx.show; gfx.fSum = gfx.fN = 0;
+  try { localStorage.setItem(FPS_KEY, gfx.show ? '1' : '0'); } catch (e) {}
+  gfxLabels();
+}
+// Called every frame with the real time since the last one (ms)
+function tuneGfx(ms, now) {
+  if (ms <= 0) return;
+  if (gfx.show) {
+    gfx.fSum += ms; gfx.fN++;
+    if (now - gfx.fT > 500) {
+      $('fpsMeter').textContent = `${Math.round(1000 * gfx.fN / gfx.fSum)} FPS · ${(gfx.fSum / gfx.fN).toFixed(1)} ms · ${GFX_NAMES[gfx.mode]} ×${gfx.pr}`;
+      gfx.fSum = gfx.fN = 0; gfx.fT = now;
+    }
+  }
+  if (gfx.mode !== 'auto' || gfx.pr <= 1 || now < gfx.hold) return;
+  // A stall or a hidden tab says nothing about how heavy the drawing is
+  if (ms > 250 || document.hidden) { gfx.sum = gfx.n = 0; return; }
+  gfx.sum += ms; gfx.n++;
+  if (gfx.sum < 2000) return;
+  if (gfx.sum / gfx.n > 20) { gfx.pr = Math.max(1, gfx.pr - 0.25); renderer.setPixelRatio(gfx.pr); gfx.hold = now + 3000; }
+  gfx.sum = gfx.n = 0;
+}
+applyGfx();
 
 function canvasTex(w, h, draw) {
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
@@ -1169,16 +1232,21 @@ const UP = new THREE.Vector3(0, 1, 0), tmpV = new THREE.Vector3(), LYING = new T
 
 /* ---------- audio ---------- */
 let actx = null, muted = false, noiseBuf = null;
-function ensureAudio() {
+// Creating the AudioContext blocks for ~100 ms (measured 120 ms in Chrome on macOS). Doing it on the start button
+// froze the first frame of every match, so it is made while the page sits idle and only resumed on that click.
+function makeAudio() {
+  if (actx) return;
   try {
-    if (!actx) {
-      actx = new (window.AudioContext || window.webkitAudioContext)();
-      noiseBuf = actx.createBuffer(1, actx.sampleRate * 0.25, actx.sampleRate);
-      const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    }
-    if (actx.state === 'suspended') actx.resume();
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    noiseBuf = actx.createBuffer(1, actx.sampleRate * 0.25, actx.sampleRate);
+    const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   } catch (e) { actx = null; }
 }
+function ensureAudio() {
+  makeAudio();
+  try { if (actx && actx.state === 'suspended') actx.resume(); } catch (e) {}
+}
+(window.requestIdleCallback || (f => setTimeout(f, 500)))(makeAudio);
 function noise(freq, type, gain, dur) {
   const t = actx.currentTime, src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
   src.buffer = noiseBuf; f.type = type; f.frequency.value = freq; f.Q.value = 1.1;
@@ -1731,6 +1799,7 @@ const overlayOpen = () => !$('menu').hidden || !$('result').hidden || !$('lobby'
 addEventListener('keydown', e => {
   if (binding) { captureKey(e); return; }
   if (!$('keysPanel').hidden) { if (e.code === 'Escape') { closeKeys(); e.preventDefault(); } return; }
+  if (e.code === 'F3' && !actOf(e.code)) { toggleFps(); e.preventDefault(); return; }
   if (S.mode === 'watch') {
     if (e.code === 'Escape') exitWatch('');
     else if (e.code === 'ArrowLeft' || e.code === 'KeyA') cycleWatch(-1);
@@ -1797,6 +1866,8 @@ function backToMenu() {
   $('menu').hidden = false; readMenu(); placeBackdrop(); hideRing(); updateHUD(); refreshRooms();
 }
 $('btnStart').addEventListener('click', () => { readMenu(); newMatch(); });
+$('btnGfx').addEventListener('click', cycleGfx);
+$('btnPauseGfx').addEventListener('click', cycleGfx);
 $('btnResume').addEventListener('click', () => setPaused(false));
 $('btnQuit').addEventListener('click', () => { if (S.mode !== 'ai') lanEnd(''); else backToMenu(); });
 $('btnAgain').addEventListener('click', () => { if (S.mode === 'guest') send({ t: 'again' }); else newMatch(); });
@@ -2506,7 +2577,8 @@ function syncVisuals(dt) {
 }
 function frame(now) {
   requestAnimationFrame(frame);
-  const dt = Math.min(0.05, (now - last) / 1000); last = now; clock += dt;
+  const raw = now - last, dt = Math.min(0.05, raw / 1000); last = now; clock += dt;
+  tuneGfx(raw, now);
   const active = S.state === 'serve' || S.state === 'rally' || S.state === 'point';
   if (S.mode === 'guest') guestTick(dt);
   else if (active && !S.paused) update(dt);

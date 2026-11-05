@@ -33,6 +33,17 @@ Mở tab **Chơi với người** trong menu. Tab này liệt kê 5 sân: sân n
 
 Đổi cổng: `PORT=8080 node server.js`.
 
+## Đồ hoạ
+
+Nút **Đồ hoạ** ở đầu menu (và trong màn tạm dừng) đổi lần lượt giữa các mức sau. Lựa chọn được nhớ trên máy.
+
+- **Tự động** (mặc định): bắt đầu ở độ nét cao nhất. Nếu game chạy dưới khoảng 50 FPS, độ nét tự hạ từng bậc, thấp nhất là ×1.
+- **Cao**: độ nét ×2, bóng đổ mềm.
+- **Vừa**: độ nét ×1,5.
+- **Thấp**: độ nét ×1, bóng đổ nhẹ hơn. Dành cho máy yếu.
+
+Bấm **F3** để hiện số FPS ở góc dưới bên trái.
+
 Lần đầu chạy, server tải Three.js về thư mục `vendor/`. Từ lần sau, chơi LAN không cần Internet.
 
 ### Máy kia không vào được?
