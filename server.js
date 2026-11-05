@@ -111,6 +111,10 @@ function wsFrame(op, data) {
   return Buffer.concat([head, data]);
 }
 
+// Trang nào mở game cũng giữ một kết nối "xem" (?watch=1): nhận bản tóm tắt trận của mọi sân
+// để vẽ các trận khác lên sân bên cạnh và để xem trận.
+const watchers = new Set();
+
 function roster(r) {
   const seats = r.seats.map(p => p ? 1 : 0), names = r.seats.map(p => p ? p.name : ''), looks = r.seats.map(p => p ? p.look : null), host = r.seats.indexOf(r.host);
   for (const p of r.seats) if (p) p.json({ t: 'roster', seats, names, looks, host, you: p.seat });
@@ -163,9 +167,22 @@ class Peer {
   // Chủ sân gửi cho mọi người trong sân; người khác chỉ gửi cho chủ sân, kèm vị trí của mình.
   // Riêng tin đổi vị trí ({t:'seat'}) do server xử lý, chỉ được đổi trước khi trận bắt đầu.
   relay(text) {
+    if (this.watch) return;
     const r = this.room;
     if (!r) return;
     if (this === r.host && text.startsWith('{"t":"meta"')) { try { r.started = !!JSON.parse(text).started; } catch {} return; }
+    // Bản tóm tắt trận (~10 lần/giây): gắn số sân rồi gửi cho mọi kết nối xem. Giữ bản mới nhất
+    // (kèm tên và nhân vật) để người vừa mở trang thấy ngay.
+    if (this === r.host && text.startsWith('{"t":"sum"')) {
+      let m;
+      try { m = JSON.parse(text); } catch { return; }
+      m.c = this.court;
+      if (m.info) r.info = m.info;
+      const out = JSON.stringify(m);
+      r.last = m.info ? out : JSON.stringify({ ...m, info: r.info });
+      for (const w of watchers) w.send(out);
+      return;
+    }
     if (text.startsWith('{"t":"seat"')) {
       let to = -1;
       try { to = JSON.parse(text).to | 0; } catch {}
@@ -184,6 +201,7 @@ class Peer {
   onClose() {
     this.open = false;
     clearInterval(this.ping);
+    if (this.watch) { watchers.delete(this); return; }
     this.leave();
   }
   // Rời sân, gọi được nhiều lần: lần đầu trả ghế, các lần sau không làm gì.
@@ -195,6 +213,7 @@ class Peer {
     if (this === r.host) {
       for (let i = 0; i < 4; i++) { const p = r.seats[i]; if (p) { r.seats[i] = null; p.json({ t: 'left' }); p.close(); } }
       r.host = null; r.started = false;
+      if (r.last) { r.last = r.info = null; for (const w of watchers) w.json({ t: 'sumEnd', c: this.court }); }
       console.log(`Sân ${this.court}: chủ sân ${this.name} đã rời, sân trống.`);
     } else {
       roster(r);
@@ -212,6 +231,11 @@ server.on('upgrade', (req, sock) => {
     `Sec-WebSocket-Accept: ${accept}\r\n\r\n`);
   sock.setNoDelay(true);
   const p = new Peer(sock);
+  if (u.searchParams.get('watch')) {
+    p.watch = true; watchers.add(p);
+    for (const r of rooms) if (r.host && r.last) p.send(r.last);
+    return;
+  }
   const court = Math.min(COURTS, Math.max(1, parseInt(u.searchParams.get('court'), 10) || 1));
   const r = rooms[court - 1];
   // Tên hiển thị: bỏ ký tự điều khiển, tối đa 16 ký tự
