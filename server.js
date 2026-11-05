@@ -124,8 +124,19 @@ class Peer {
   constructor(sock) {
     this.sock = sock; this.buf = Buffer.alloc(0); this.frag = null; this.open = true; this.room = null; this.seat = -1; this.court = 0; this.name = ''; this.look = null;
     // Ping mỗi 25 giây để proxy (Render, Nginx…) không cắt kết nối khi đang ngồi chờ trong phòng.
-    this.ping = setInterval(() => { if (this.open) this.sock.write(wsFrame(9, Buffer.alloc(0))); }, 25000);
-    sock.on('data', d => this.onData(d));
+    // Trình duyệt tự trả pong; qua một lượt ping mà không nhận được gì thì coi như đã mất (tắt Wi‑Fi,
+    // điện thoại ngủ…) và cắt để trả ghế, thay vì giữ ghế đến khi hệ điều hành tự đóng TCP.
+    this.alive = true;
+    this.ping = setInterval(() => {
+      if (!this.open) return;
+      if (!this.alive) { this.sock.destroy(); return; }
+      this.alive = false;
+      this.sock.write(wsFrame(9, Buffer.alloc(0)));
+    }, 25000);
+    sock.on('data', d => { this.alive = true; this.onData(d); });
+    // Phía kia chỉ đóng TCP (FIN) mà không gửi khung close, ví dụ bấm Huỷ lúc đang kết nối:
+    // socket sau khi nâng cấp không tự đóng, nên phải tự cắt, nếu không ghế bị giữ mãi.
+    sock.on('end', () => sock.destroy());
     sock.on('close', () => this.onClose());
     sock.on('error', () => sock.destroy());
   }

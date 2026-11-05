@@ -80,9 +80,19 @@ body:not(.touch) .only-touch{display:none!important}
 #knob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:rgba(238,243,241,.85);box-shadow:0 4px 14px rgba(0,0,0,.4)}
 .acts{display:flex;align-items:flex-end;gap:14px;pointer-events:auto}
 .act{border-radius:50%;border:1px solid var(--edge);display:grid;place-items:center;font-family:var(--display);font-weight:700;letter-spacing:.06em;touch-action:none;cursor:pointer}
-#bSoft,#bJump{width:70px;height:70px;font-size:14px;background:rgba(9,20,31,.7)}
-#bStrong{width:88px;height:88px;font-size:16px;background:var(--led);color:var(--led-ink);border-color:transparent;margin-bottom:26px}
+#bJump{width:70px;height:70px;font-size:14px;background:rgba(9,20,31,.7)}
+#bHit{width:88px;height:88px;font-size:16px;background:var(--led);color:var(--led-ink);border-color:transparent;margin-bottom:26px}
 .act:active{transform:scale(.95)}
+/* Hit power: fills while the hit button is held; full = strong */
+#power{display:flex;align-items:center;gap:10px;font-family:var(--display);font-size:11px;font-weight:600;letter-spacing:.12em;color:var(--muted);
+  background:var(--panel);border:1px solid var(--edge);border-radius:999px;padding:6px 14px;opacity:0;transition:opacity .25s}
+#power.show{opacity:1;transition:none}
+#power i{width:160px;height:6px;border-radius:3px;background:rgba(238,243,241,.12);overflow:hidden}
+#power b{display:block;height:100%;background:var(--ink);transform-origin:left;transform:scaleX(0)}
+#power.soft span:first-child{color:var(--ink)}
+#power.strong{border-color:var(--led)}
+#power.strong span:last-child{color:var(--led)}
+#power.strong b{background:var(--led);box-shadow:0 0 8px var(--led)}
 
 .overlay{position:fixed;inset:0;z-index:20;display:grid;place-items:center;overflow:auto;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
@@ -202,6 +212,17 @@ button.seat em{font-style:normal;font-size:12px;color:var(--led)}
 .seg.four label b{font-size:13px}
 .ghost.mini{flex:0 0 auto;padding:6px 10px;font-size:12px;letter-spacing:.06em}
 .mhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.mbtns{display:flex;gap:6px;flex:0 0 auto}
+/* Key bindings: action | main key | second key */
+.binds{display:grid;grid-template-columns:minmax(0,1fr) 96px 96px;gap:6px 8px;align-items:center}
+.binds .bl{font-size:14px;line-height:1.3}
+.binds .bl small{display:block;font-size:12px;color:var(--muted)}
+.binds .bh{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600;text-align:center}
+.bind{font-family:var(--display);font-weight:600;font-size:14px;color:var(--ink);background:rgba(255,255,255,.04);border:1px solid var(--edge);border-bottom-width:2px;border-radius:6px;padding:8px 6px;cursor:pointer;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bind:hover{border-color:var(--led)}
+.bind.empty{color:var(--muted);font-weight:500}
+.bind.wait{border-color:var(--led);background:rgba(255,181,71,.12);color:var(--led)}
+#keysNote{min-height:1.55em;font-size:13px}
 #btnCustom,.custom .done{display:none}
 /* Side by side, the customizer takes the menu card's height (contain:size ignores its own content height)
    and the options scroll inside it, so the menu never grows past the screen */
@@ -223,7 +244,7 @@ button.seat em{font-style:normal;font-size:12px;color:var(--led)}
 .watchbar span{margin-right:6px}
 .primary.mini{flex:0 0 auto;padding:7px 14px;font-size:13px;border-radius:999px}
 .watchbar .ghost.mini{border-radius:999px}
-body.watching #hint,body.watching .touch-ctl,body.watching #sta{display:none!important}
+body.watching #hint,body.watching .touch-ctl,body.watching #sta,body.watching #power{display:none!important}
 #btnWatch{flex:0 0 auto}
 #nmP,#nmA{display:inline-block;max-width:170px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
 /* Author credit: bottom-right, only while a menu screen is open */
@@ -258,16 +279,16 @@ body.watching #hint,body.watching .touch-ctl,body.watching #sta{display:none!imp
   <div id="toast" role="status"></div>
 
   <div class="bottom">
+    <div id="power" aria-hidden="true"><span>NHẸ</span><i><b id="powerBar"></b></i><span>MẠNH</span></div>
     <div id="shot"></div>
     <div class="watchbar" id="watchBar" hidden><span id="watchTitle">Đang xem</span><button class="ghost mini" id="watchPrev" aria-label="Sân trước">◀</button><button class="ghost mini" id="watchNext" aria-label="Sân sau">▶</button><button class="primary mini" id="watchExit">THOÁT</button></div>
     <div id="serveHint" hidden></div>
-    <div id="hint" class="only-desk"><kbd>W A S D</kbd> di chuyển · giữ <kbd>Shift</kbd> chạy · <kbd>Space</kbd> nhảy · <kbd>J</kbd> đánh mạnh · <kbd>Space</kbd>+<kbd>J</kbd> bật nhảy đập · <kbd>K</kbd> đánh nhẹ · <kbd>Esc</kbd> tạm dừng</div>
+    <div id="hint" class="only-desk"><kbd data-k="up">W</kbd> <kbd data-k="left">A</kbd> <kbd data-k="down">S</kbd> <kbd data-k="right">D</kbd> di chuyển · <kbd data-k="jump">Space</kbd> nhảy · nhấn <kbd data-k="hit">J</kbd> đánh nhẹ · giữ <kbd data-k="hit">J</kbd> đánh mạnh · <kbd data-k="jump">Space</kbd>+giữ <kbd data-k="hit">J</kbd> bật nhảy đập · <kbd>Esc</kbd> tạm dừng</div>
     <div class="touch-ctl">
       <div id="stick" aria-label="Cần di chuyển"><div id="knob"></div></div>
       <div class="acts">
-        <button class="act" id="bSoft">NHẸ</button>
         <button class="act" id="bJump">NHẢY</button>
-        <button class="act" id="bStrong">MẠNH</button>
+        <button class="act" id="bHit">ĐÁNH</button>
       </div>
     </div>
   </div>
@@ -299,7 +320,7 @@ body.watching #hint,body.watching .touch-ctl,body.watching #sta{display:none!imp
         <h1>Sân Cầu Terralogic</h1>
         <p>Ván 21 điểm, phải hơn 2 điểm mới thắng ván, chạm 30 là thắng ngay. Thắng 2 ván là thắng trận.</p>
       </div>
-      <button class="ghost mini" id="btnCustom">Nhân vật</button>
+      <div class="mbtns"><button class="ghost mini only-desk" id="btnKeys">Phím</button><button class="ghost mini" id="btnCustom">Nhân vật</button></div>
     </div>
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" id="tabAi" aria-controls="panelAi" aria-selected="true">Chơi với máy</button>
@@ -340,20 +361,19 @@ body.watching #hint,body.watching .touch-ctl,body.watching #sta{display:none!imp
       <section class="mcol side" aria-label="Cách chơi">
         <div class="label">Cách chơi</div>
         <dl class="keys only-desk">
-          <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>Di chuyển (hoặc phím mũi tên)</dd>
-          <dt><kbd>Shift</kbd></dt><dd>Giữ để chạy, tốn thể lực</dd>
-          <dt><kbd>J</kbd></dt><dd>Đánh mạnh: đập hoặc lốp sâu. Giữ <kbd>S</kbd> để phông</dd>
-          <dt><kbd>K</kbd></dt><dd>Đánh nhẹ: bỏ nhỏ, đẩy sát lưới</dd>
-          <dt><kbd>Space</kbd></dt><dd>Nhảy, với được cầu cao hơn</dd>
-          <dt><kbd>Space</kbd><kbd>J</kbd></dt><dd>Bật nhảy đập khi cầu cao</dd>
-          <dt><kbd>A</kbd><kbd>D</kbd></dt><dd>Giữ lúc chạm cầu để đánh về góc</dd>
+          <dt><kbd data-k="up">W</kbd><kbd data-k="left">A</kbd><kbd data-k="down">S</kbd><kbd data-k="right">D</kbd></dt><dd>Di chuyển. Đổi phím ở nút <b>Phím</b> phía trên</dd>
+          <dt><kbd data-k="hit">J</kbd> nhấn</dt><dd>Đánh nhẹ: bỏ nhỏ, đẩy sát lưới, giao ngắn</dd>
+          <dt><kbd data-k="hit">J</kbd> giữ</dt><dd>Đánh mạnh: đập, lốp sâu, giao cao sâu. Giữ thêm <kbd data-k="down">S</kbd> để phông</dd>
+          <dt><kbd data-k="jump">Space</kbd></dt><dd>Nhảy, với được cầu cao hơn, tốn thể lực</dd>
+          <dt><kbd data-k="jump">Space</kbd><kbd data-k="hit">J</kbd></dt><dd>Nhảy rồi giữ <kbd data-k="hit">J</kbd> khi cầu cao để bật nhảy đập</dd>
+          <dt><kbd data-k="left">A</kbd><kbd data-k="right">D</kbd></dt><dd>Giữ lúc chạm cầu để đánh về góc</dd>
           <dt><kbd>Esc</kbd></dt><dd>Tạm dừng</dd>
         </dl>
         <dl class="keys only-touch">
-          <dt><kbd>Cần trái</kbd></dt><dd>Di chuyển, đẩy hết cỡ để chạy, nghiêng khi đánh để đưa cầu về góc</dd>
-          <dt><kbd>MẠNH</kbd></dt><dd>Đập hoặc lốp sâu, kéo cần về sau để phông</dd>
-          <dt><kbd>NHẸ</kbd></dt><dd>Bỏ nhỏ, đẩy sát lưới</dd>
-          <dt><kbd>NHẢY</kbd></dt><dd>Nhảy, rồi bấm MẠNH khi cầu cao để bật nhảy đập</dd>
+          <dt><kbd>Cần trái</kbd></dt><dd>Di chuyển, nghiêng khi đánh để đưa cầu về góc</dd>
+          <dt><kbd>ĐÁNH</kbd> chạm</dt><dd>Đánh nhẹ: bỏ nhỏ, đẩy sát lưới, giao ngắn</dd>
+          <dt><kbd>ĐÁNH</kbd> giữ</dt><dd>Đánh mạnh: đập, lốp sâu, giao cao sâu. Kéo cần về sau để phông</dd>
+          <dt><kbd>NHẢY</kbd></dt><dd>Nhảy, rồi giữ ĐÁNH khi cầu cao để bật nhảy đập</dd>
         </dl>
         <p class="tip">Bấm sớm một chút khi cầu bay tới. Vòng vàng là chỗ cầu rơi, vòng xám là cầu sẽ ra ngoài. Đánh đôi: vòng trắng dưới chân là bạn.</p>
       </section>
@@ -399,6 +419,17 @@ body.watching #hint,body.watching .touch-ctl,body.watching #sta{display:none!imp
   <div class="card">
     <div class="titleblock"><div class="eyebrow" id="pauseInfo">Ván 1</div><h2>Tạm dừng</h2></div>
     <div class="row"><button class="primary" id="btnResume">TIẾP TỤC</button><button class="ghost" id="btnQuit">Bỏ trận</button></div>
+    <div class="row only-desk"><button class="ghost" id="btnPauseKeys">Đổi phím</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="keysPanel" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="keysTitle">
+    <div class="titleblock"><div class="eyebrow">Điều khiển</div><h2 id="keysTitle">Đổi phím</h2>
+      <p>Bấm vào một ô rồi bấm phím mới. Phím đã dùng cho việc khác sẽ được đổi chỗ. <kbd>Backspace</kbd> xoá phím phụ, <kbd>Esc</kbd> huỷ.</p></div>
+    <div class="binds" id="bindList"></div>
+    <p id="keysNote" class="note" role="status"></p>
+    <div class="row"><button class="primary" id="btnKeysDone">XONG</button><button class="ghost" id="btnKeysReset">Về mặc định</button></div>
   </div>
 </div>
 
@@ -628,6 +659,10 @@ function setCourt(i) { S.court = clamp(i | 0, 0, COURTS - 1); hallG.position.x =
 // Every limb hangs along -y at rest; rotation.x > 0 swings it forward (towards the net).
 const THIGH = 0.44, SHIN = 0.42, HIP_DROP = 0.06, FOOT = 0.07;
 const WALK_SP = 5.2, RUN_SP = 6.9, JUMP_V = 3.3, LAND_T = 0.18;
+// Doubles: partners who run into each other both fall. FALL_T: down and back up again (s), FALL_R: contact distance,
+// FALL_V: least closing speed that knocks them over, FALL_SAFE: grace after getting up so they can step apart,
+// FALL_PUSH: how hard the bump throws each one back (m/s, slides about FALL_PUSH / 7 m)
+const FALL_T = 0.5, FALL_R = 0.7, FALL_V = 0.6, FALL_SAFE = 0.5, FALL_PUSH = 3.2;
 function figure(look) {
   const g = new THREE.Group();
   const m = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7 });
@@ -912,7 +947,8 @@ function makeAthlete(idx, look, parent = scene) {
   parent.add(f.g);
   makeTag(f);
   return Object.assign(f, { idx, side, x: 0, z: side * 3.5, vx: 0, vz: 0, y: 0, vy: 0, landT: 0, sta: 1, tired: false, run: false,
-    swingT: -1, swingK: 'over', armed: null, armT: 0, cool: 0, phase: 0, plan: null, delay: 0, leave: false,
+    swingT: -1, swingK: 'over', armed: null, armT: 0, holding: false, serveHold: false, cool: 0, phase: 0, plan: null, delay: 0, leave: false,
+    fallT: 0, fdx: 0, fdz: 1, fallSafe: 0, tilted: false,
     look, pose: { ...READY }, leg: { th: [0, 0], kn: [0, 0], an: [0, 0] } });
 }
 // Near team in orange shades, far team in blue shades; each partner a slightly different tone. Humans can restyle theirs.
@@ -950,6 +986,7 @@ function mixPose(out, p, q, u) { for (const k in p) out[k] = p[k] + (q[k] - p[k]
 // Match context the animation reads: your own match, or another court's match from its summaries
 const MAIN = { get state() { return S.state; }, get server() { return S.server; }, get sh() { return shuttle; } };
 function poseTarget(a, idx, ctx) {
+  if (a.fallT > 0) return fallKey(fallU(a)).p;
   const sh = ctx.sh;
   if (ctx.state === 'serve' && ctx.server === idx) mixPose(basePose, SERVE, SERVE, 0);
   else {
@@ -979,10 +1016,13 @@ function animateAthlete(a, dt, idx, ctx = MAIN) {
   for (const k in tgt) q[k] += (tgt[k] - q[k]) * ka;
 
   // Legs: athletic crouch in a rally, stride while moving, tuck in the air (scissor kick on an overhead jump)
-  const sp = Math.hypot(a.vx, a.vz), air = a.y > 0.005, run = Math.min(1, sp / 3.5);
+  // While knocked down the body follows the fall keyframes; fw is how far it is down (0 standing, 1 on the floor)
+  const fu = fallU(a), down = fu >= 0, fw = fallWeight(fu);
+  const sp = down ? 0 : Math.hypot(a.vx, a.vz), air = a.y > 0.005, run = Math.min(1, sp / 3.5);
   a.phase += dt * (5 + sp * 1.8);
   let th, kn, tuck = 0;
-  if (air) {
+  if (down) { const F = fallKey(fu); th = F.th; kn = F.kn; }
+  else if (air) {
     // How far through the jump we are (0 = take-off, 1 = touch-down), from the speed and height alone so it
     // also works for remote players: take-off speed v0 = √(vy² + 2·G·y)
     const v0 = Math.sqrt(a.vy * a.vy + 2 * G * a.y) || 1, u = clamp((1 - a.vy / v0) / 2, 0, 1);
@@ -1001,8 +1041,8 @@ function animateAthlete(a, dt, idx, ctx = MAIN) {
   let ext = 0;
   a.legs.forEach((l, i) => {
     const t0 = a.leg.th[i] += (th[i] - a.leg.th[i]) * kl, k0 = a.leg.kn[i] += (kn[i] - a.leg.kn[i]) * kl;
-    // Feet flat on the ground; in the air the toes point down as the legs tuck
-    const an = air ? -(t0 + k0) * 0.5 - 0.25 - 0.45 * tuck : -(t0 + k0);
+    // Feet flat on the ground; in the air the toes point down as the legs tuck; sitting, the heels rest on the floor
+    const an = air ? -(t0 + k0) * 0.5 - 0.25 - 0.45 * tuck : -(t0 + k0) * (1 - 0.5 * fw);
     l.ankle.rotation.x = a.leg.an[i] += (an - a.leg.an[i]) * (air ? kl : 1 - Math.exp(-dt * 40));
     l.hip.rotation.x = t0; l.knee.rotation.x = k0;
     ext = Math.max(ext, THIGH * Math.cos(t0) + SHIN * Math.cos(t0 + k0));
@@ -1011,16 +1051,49 @@ function animateAthlete(a, dt, idx, ctx = MAIN) {
   a.pelvis.position.y = HIP_DROP + FOOT + (air ? THIGH + SHIN - 0.03 : ext);
 
   // Torso leans into the run, arms follow the pose, left arm pumps while running
-  const lvx = a.vx * a.side, lvz = a.vz * a.side;
+  const lvx = a.vx * a.side * (1 - fw), lvz = a.vz * a.side * (1 - fw);
   // (sideways lean and head turn are in world terms, so they flip back for a mirrored left-hander)
   a.torso.rotation.set(q.lean + lvz * 0.035 - (a.run && sp > 4 ? 0.12 : 0), q.tw, -lvx * 0.03 * a.hand);
   a.R.sh.rotation.set(q.sx, 0, q.sz); a.R.el.rotation.x = q.el; a.R.wr.rotation.x = q.wr;
   a.L.sh.rotation.set(q.lx + (a.swingT < 0 ? Math.sin(a.phase) * 0.45 * run : 0), 0, q.lz); a.L.el.rotation.x = q.le;
 
-  // Eyes on the shuttle
+  // Eyes on the shuttle; while down the head stays level with the ground instead
   const p = ctx.sh.p, dx = (p.x - a.x) * a.side, dz = (p.z - a.z) * a.side, dy = p.y - a.y - 1.6;
-  a.neck.rotation.set(clamp(Math.atan2(dy, Math.hypot(dx, dz)) - q.lean, -0.5, 0.9), clamp(a.hand * Math.atan2(-dx, -dz) - q.tw, -1.1, 1.1), 0);
+  const pitch = clamp(Math.atan2(dy, Math.hypot(dx, dz)) - q.lean, -0.5, 0.9), yaw = clamp(a.hand * Math.atan2(-dx, -dz) - q.tw, -1.1, 1.1);
+  a.neck.rotation.set(pitch + (-0.8 * q.lean - 0.1 - pitch) * fw, yaw * (1 - fw), 0);
+  // The bump spins the body round so it sits down with its back to the way it falls (at most ~70°), facing
+  // the partner it ran into, then turns back to the net while getting up
+  const face = a.side < 0 ? Math.PI : 0;
+  if (fw > 0) {
+    const d = Math.atan2(a.fdx, a.fdz) - face, twist = clamp(Math.atan2(Math.sin(d), Math.cos(d)), -1.2, 1.2);
+    a.g.rotation.set(0, face + twist * fw, 0); a.tilted = true;
+  } else if (a.tilted) { a.tilted = false; a.g.rotation.set(0, face, 0); }
   a.g.position.set(a.x, a.y, a.z);
+}
+// The fall, in fractions of FALL_T: knocked back with the arms flung out, the knees give and it sits down hard
+// catching itself on its hands, then rolls forward into a crouch and stands back up into the ready stance.
+// p: arm and torso pose (same keys as READY; lean > 0 is backwards), th/kn: thigh and knee angle of each leg
+const FALL_KEYS = [
+  { u: 0.08, p: { sx: 1.7, sz: 1.15, el: 0.7, wr: 0.3, lx: 1.5, lz: -1.15, le: 0.6, tw: 0.25, lean: 0.4 }, th: [0.25, -0.15], kn: [-0.55, -0.25] },
+  { u: 0.18, p: { sx: 0.6, sz: 1.0, el: 0.4, wr: 0.1, lx: 0.4, lz: -1.0, le: 0.4, tw: 0.2, lean: 0.5 }, th: [0.9, 1.1], kn: [-1.3, -1.6] },
+  { u: 0.30, p: { sx: -0.55, sz: 0.65, el: 0.25, wr: 0, lx: -0.65, lz: -0.65, le: 0.25, tw: 0.1, lean: 0.6 }, th: [1.5, 2.1], kn: [-0.4, -2.3] },
+  { u: 0.36, p: { sx: -0.7, sz: 0.6, el: 0.15, wr: 0, lx: -0.8, lz: -0.6, le: 0.15, tw: 0.05, lean: 0.78 }, th: [1.6, 2.2], kn: [-0.3, -2.4] },
+  { u: 0.48, p: { sx: -0.6, sz: 0.6, el: 0.2, wr: 0, lx: -0.7, lz: -0.6, le: 0.2, tw: 0, lean: 0.68 }, th: [1.65, 2.25], kn: [-0.35, -2.45] },
+  { u: 0.66, p: { sx: 0.7, sz: 0.45, el: 1.0, wr: 0.3, lx: 0.6, lz: -0.5, le: 1.0, tw: 0, lean: -0.65 }, th: [1.9, 1.7], kn: [-2.5, -2.4] },
+  { u: 0.84, p: { ...READY, lean: -0.32 }, th: [0.85, 0.75], kn: [-1.45, -1.35] },
+  { u: 1.00, p: READY, th: [0.32, 0.32], kn: [-0.62, -0.62] },
+];
+const fallU = a => a.fallT > 0 ? clamp(1 - a.fallT / FALL_T, 0, 1) : -1;
+// How far down the body is, for blending the twist and head: drops in quickly, back up over the last 40%
+const fallWeight = u => u < 0 ? 0 : u < 0.2 ? ease(u / 0.2) : u < 0.6 ? 1 : 1 - ease((u - 0.6) / 0.4);
+const FK = { p: {}, th: [0, 0], kn: [0, 0] };
+function fallKey(u) {
+  const K = FALL_KEYS; let i = 0;
+  while (i < K.length - 1 && K[i + 1].u <= u) i++;
+  const A = K[i], B = K[Math.min(i + 1, K.length - 1)], w = u <= A.u || A === B ? 0 : ease((u - A.u) / (B.u - A.u));
+  mixPose(FK.p, A.p, B.p, w);
+  for (let j = 0; j < 2; j++) { FK.th[j] = A.th[j] + (B.th[j] - A.th[j]) * w; FK.kn[j] = A.kn[j] + (B.kn[j] - A.kn[j]) * w; }
+  return FK;
 }
 function stepBody(a, dt) {
   if (a.y > 0 || a.vy > 0) {
@@ -1029,9 +1102,9 @@ function stepBody(a, dt) {
   } else if (a.landT > 0) a.landT -= dt;
 }
 function doJump(a) {
-  if (a.y > 0 || a.vy > 0 || a.landT > 0.1) return;
+  if (a.y > 0 || a.vy > 0 || a.landT > 0.1 || a.fallT > 0) return;
   a.vy = JUMP_V * (0.72 + 0.28 * a.sta); a.sta = Math.max(0, a.sta - 0.12);
-  if (a.armed === 'strong') a.armT = Math.max(a.armT, 0.42);
+  if (a.armed) a.armT = Math.max(a.armT, 0.42);
   play('jump');
 }
 function moveAthlete(a, ix, iz, maxSp, dt, arrive) {
@@ -1042,6 +1115,26 @@ function moveAthlete(a, ix, iz, maxSp, dt, arrive) {
   a.vx += (tx - a.vx) * k; a.vz += (tz - a.vz) * k;
   a.x = clamp(a.x + a.vx * dt, -3.4, 3.4);
   a.z = a.side > 0 ? clamp(a.z + a.vz * dt, 0.35, 8.2) : clamp(a.z + a.vz * dt, -8.2, -0.35);
+}
+// Partners who run into each other on the ground both fall over, away from each other
+function checkFalls() {
+  if (S.state !== 'rally') return;
+  for (const t of [0, 1]) {
+    const a = ath(t), b = ath(t + 2);
+    if (a.fallT > 0 || b.fallT > 0 || a.fallSafe > 0 || b.fallSafe > 0 || a.y > 0.05 || b.y > 0.05) continue;
+    const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz);
+    if (d >= FALL_R) continue;
+    const nx = d > 1e-4 ? dx / d : 1, nz = d > 1e-4 ? dz / d : 0;
+    // Only a real bump: they are moving towards each other, not just standing side by side
+    if (d > 1e-4 && (a.vx - b.vx) * nx + (a.vz - b.vz) * nz < FALL_V) continue;
+    knockDown(a, -nx, -nz); knockDown(b, nx, nz);
+    play('fall');
+    emit({ k: 'fall', t }); // names are worded on each screen ("Bạn" is whoever reads it)
+  }
+}
+function knockDown(a, fx, fz) {
+  a.fallT = FALL_T; a.fallSafe = FALL_T + FALL_SAFE; a.fdx = fx; a.fdz = fz;
+  a.vx = fx * FALL_PUSH; a.vz = fz * FALL_PUSH; a.run = false; a.armed = null; a.holding = false; a.swingT = -1;
 }
 // Partners can't stand inside each other
 function separatePartners() {
@@ -1104,6 +1197,7 @@ function sfx(kind) {
   else if (kind === 'hit') { noise(2600, 'bandpass', 0.5, 0.06); tone(1900, 0, 0.04, 0.05); }
   else if (kind === 'land') noise(420, 'lowpass', 0.25, 0.08);
   else if (kind === 'jump') noise(260, 'lowpass', 0.2, 0.07);
+  else if (kind === 'fall') { noise(170, 'lowpass', 0.6, 0.18); noise(900, 'bandpass', 0.18, 0.05); }
   else if (kind === 'net') noise(700, 'lowpass', 0.35, 0.15);
   else if (kind === 'win') { tone(660, 0, 0.14, 0.1); tone(880, 0.12, 0.2, 0.1); }
   else if (kind === 'lose') { tone(440, 0, 0.14, 0.08); tone(330, 0.12, 0.22, 0.08); }
@@ -1155,6 +1249,7 @@ function handleEv(ev) {
   else if (ev.k === 'shot') showShot(ev.idx, ev.type);
   else if (ev.k === 'point') showPoint(ev);
   else if (ev.k === 'toast') toast(ev.big, ev.small, ev.dur);
+  else if (ev.k === 'fall') toast('Va nhau!', `${nameOf(ev.t | 0)} và ${nameOf((ev.t | 0) + 2)} té ngã`, 1);
   else if (ev.k === 'result') showResult(ev);
 }
 const play = kind => emit({ k: 'sfx', kind });
@@ -1182,10 +1277,10 @@ function updateHUD() {
 function updateServeHint() {
   const el = $('serveHint');
   el.hidden = !(S.state === 'serve' && S.server === me && !S.paused);
-  el.innerHTML = isTouch() ? 'Bạn giao cầu · MẠNH: giao cao sâu · NHẸ: giao ngắn' : 'Bạn giao cầu · <kbd>J</kbd> giao cao sâu · <kbd>K</kbd> giao ngắn';
+  el.innerHTML = isTouch() ? 'Bạn giao cầu · giữ ĐÁNH: giao cao sâu · chạm ĐÁNH: giao ngắn' : `Bạn giao cầu · giữ <kbd>${key1('hit')}</kbd>: giao cao sâu · nhấn <kbd>${key1('hit')}</kbd>: giao ngắn`;
 }
 
-function placeAthlete(a, x, z) { a.x = x; a.z = z; a.vx = a.vz = 0; a.y = a.vy = a.landT = 0; }
+function placeAthlete(a, x, z) { a.x = x; a.z = z; a.vx = a.vz = 0; a.y = a.vy = a.landT = a.fallT = a.fallSafe = 0; }
 // Serving side serves from its right court on an even score. In doubles only the diagonal
 // opponent may take the serve, and the server's partner stands behind.
 function placeForServe() {
@@ -1205,7 +1300,7 @@ function setupServe() {
   S.state = 'serve'; S.isServe = false; S.netFault = false; S.rally = 0; S.lastHitter = S.lastTeam = null; S.resp = [-1, -1];
   shuttle.mode = 'held'; hideRing();
   placeForServe();
-  for (const a of ATH) { a.armed = null; a.plan = null; a.leave = false; }
+  for (const a of ATH) { a.armed = null; a.holding = a.serveHold = false; a.plan = null; a.leave = false; }
   S.timer = isHuman(S.server) ? 0 : 1.1;
   holdShuttle(); resetTrail(); updateHUD(); updateServeHint();
 }
@@ -1278,7 +1373,7 @@ function launchServe(type) { S.state = 'rally'; for (const a of ATH) a.armed = n
 const HUMAN_SP = 5.2, HUMAN_REACT = 0.15;
 // Earliest point on the shuttle's path that player idx can get to in time
 function reachOf(idx, path, top) {
-  const a = ath(idx), D = DIFF[S.diff], sp = isHuman(idx) ? HUMAN_SP : D.speed, re = isHuman(idx) ? HUMAN_REACT : D.react;
+  const a = ath(idx), D = DIFF[S.diff], sp = isHuman(idx) ? HUMAN_SP : D.speed, re = (isHuman(idx) ? HUMAN_REACT : D.react) + a.fallT;
   for (const pt of path) {
     if (pt.t < re || Math.sign(pt.z) !== a.side || Math.abs(pt.z) < 0.25 || pt.y > top || pt.y < 0.3) continue;
     const sx = pt.x - a.side * a.hand * 0.35, sz = pt.z + a.side * 0.28;
@@ -1359,6 +1454,7 @@ function tryHits() {
     if (S.lastTeam === t) continue; // a side gets one hit, partners can't hit twice in a row
     if (S.isServe && i !== S.receiver) continue;
     const a = ath(i);
+    if (a.fallT > 0) continue; // down on the floor
     if (Math.sign(p.z) !== a.side || Math.abs(p.z) < 0.05 || p.y < 0.12 || p.y > 2.75 + a.y) continue;
     const hc = hitCenter(a);
     if (Math.hypot(p.x - hc.x, p.z - hc.z) > (isHuman(i) ? 1.1 : 0.95)) continue;
@@ -1463,14 +1559,128 @@ function applyPaused(on) {
 
 /* ---------- input ---------- */
 const keys = new Set(), stick = { x: 0, y: 0 }, input = { x: 0, z: 0, run: false };
-const MOVE = { KeyW: 1, KeyA: 1, KeyS: 1, KeyD: 1, ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1 };
-function readInput() {
-  let x = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0) + stick.x;
-  let z = (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0) - (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) + stick.y;
+// Key bindings: each action has a main and a second key (KeyboardEvent.code), saved on this machine.
+// Esc always pauses (and cancels while picking a key); P pauses too unless it is bound to an action.
+const KB_KEY = 'san7-keys';
+const KB_ACTS = [['up', 'Lên', 'Về phía lưới'], ['down', 'Xuống', 'Giữ khi đánh mạnh để phông'], ['left', 'Trái', ''], ['right', 'Phải', ''],
+  ['jump', 'Nhảy', ''], ['hit', 'Đánh', 'Nhấn: nhẹ · giữ: mạnh']];
+const KB_DEF = { up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'], left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'], jump: ['Space', null], hit: ['KeyJ', null] };
+const kbCopy = kb => Object.fromEntries(Object.entries(kb).map(([a, v]) => [a, [...v]]));
+function loadKB() {
+  const kb = kbCopy(KB_DEF), seen = new Set();
+  try {
+    const saved = JSON.parse(localStorage.getItem(KB_KEY));
+    if (saved && typeof saved === 'object') for (const [a] of KB_ACTS) {
+      const v = Array.isArray(saved[a]) ? [0, 1].map(i => typeof saved[a][i] === 'string' && saved[a][i] && saved[a][i] !== 'Escape' ? saved[a][i] : null) : null;
+      if (v && (v[0] || v[1])) kb[a] = v;
+    }
+  } catch (e) {}
+  // A broken save (the same key twice) falls back to the defaults
+  for (const a in kb) for (const c of kb[a]) { if (!c) continue; if (seen.has(c)) return kbCopy(KB_DEF); seen.add(c); }
+  return kb;
+}
+let KB = loadKB();
+const actOf = code => { for (const a in KB) if (KB[a].includes(code)) return a; return null; };
+const held = a => KB[a].some(c => c && keys.has(c));
+const KEY_NAMES = { Space: 'Space', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', ShiftLeft: 'Shift', ShiftRight: 'Shift phải',
+  ControlLeft: 'Ctrl', ControlRight: 'Ctrl phải', AltLeft: 'Alt', AltRight: 'Alt phải', MetaLeft: 'Cmd', MetaRight: 'Cmd phải', CapsLock: 'Caps',
+  Enter: 'Enter', Tab: 'Tab', Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Backslash: '\\', Semicolon: ';',
+  Quote: "'", Comma: ',', Period: '.', Slash: '/', NumpadEnter: 'Num Enter' };
+function keyName(c) {
+  if (!c) return '—';
+  if (KEY_NAMES[c]) return KEY_NAMES[c];
+  if (/^Key[A-Z]$/.test(c)) return c.slice(3);
+  if (/^Digit\d$/.test(c)) return c.slice(5);
+  if (c.startsWith('Numpad')) return 'Num ' + c.slice(6);
+  return c.replace(/[^\w ]/g, '');
+}
+const key1 = a => keyName(KB[a][0] || KB[a][1]);
+function renderKeyHints() {
+  for (const el of document.querySelectorAll('[data-k]')) el.textContent = key1(el.dataset.k);
+  updateServeHint();
+}
+let binding = null, bindSwallow = null, keysFrom = null;
+function renderBinds() {
+  const list = $('bindList'); list.textContent = '';
+  for (const t of ['', 'Phím chính', 'Phím phụ']) { const h = document.createElement('div'); h.className = 'bh'; h.textContent = t; list.append(h); }
+  for (const [a, name, sub] of KB_ACTS) {
+    const l = document.createElement('div'); l.className = 'bl'; l.textContent = name;
+    if (sub) { const sm = document.createElement('small'); sm.textContent = sub; l.append(sm); }
+    list.append(l);
+    for (const slot of [0, 1]) {
+      const b = document.createElement('button'), wait = binding && binding.a === a && binding.slot === slot;
+      b.className = 'bind' + (wait ? ' wait' : KB[a][slot] ? '' : ' empty');
+      b.textContent = wait ? 'Bấm phím…' : KB[a][slot] ? keyName(KB[a][slot]) : 'Trống';
+      b.setAttribute('aria-label', `${name}, phím ${slot ? 'phụ' : 'chính'}: ${KB[a][slot] ? keyName(KB[a][slot]) : 'trống'}`);
+      b.addEventListener('click', () => { binding = { a, slot }; $('keysNote').textContent = ''; renderBinds(); list.querySelector('.wait').focus(); });
+      list.append(b);
+    }
+  }
+}
+function saveKB() {
+  try { localStorage.setItem(KB_KEY, JSON.stringify(KB)); } catch (e) {}
+  keys.clear(); hitUp(); renderKeyHints(); renderBinds();
+}
+function captureKey(e) {
+  e.preventDefault(); e.stopPropagation();
+  if (e.repeat) return;
+  const { a, slot } = binding, name = KB_ACTS.find(x => x[0] === a)[1], note = $('keysNote');
+  bindSwallow = e.code; binding = null;
+  if (e.code === 'Escape') { note.textContent = ''; renderBinds(); return; }
+  if (e.code === 'Backspace' || e.code === 'Delete') {
+    if (KB[a][1 - slot]) { KB[a][slot] = null; note.textContent = `Đã xoá một phím của ${name}.`; }
+    else note.textContent = `${name} cần ít nhất một phím.`;
+  } else {
+    const prev = KB[a][slot], other = actOf(e.code);
+    if (other && other !== a) {
+      // Swap: the other action takes this slot's old key, unless that would leave it with no key at all
+      const i = KB[other].indexOf(e.code), oname = KB_ACTS.find(x => x[0] === other)[1];
+      if (!prev && !KB[other][1 - i]) { note.textContent = `Phím ${keyName(e.code)} đang là phím duy nhất của ${oname}. Đổi phím của ${oname} trước.`; renderBinds(); return; }
+      KB[other][i] = prev;
+      note.textContent = `${keyName(e.code)} chuyển sang ${name}` + (prev ? `, ${oname} nhận ${keyName(prev)}.` : '.');
+    } else {
+      if (other === a) KB[a][1 - slot] = prev; // the action's own other slot: swap the two
+      note.textContent = `${name}: ${keyName(e.code)}.`;
+    }
+    KB[a][slot] = e.code;
+  }
+  for (const k in KB) if (!KB[k][0] && KB[k][1]) KB[k] = [KB[k][1], null];
+  saveKB();
+}
+function openKeys(from) { keysFrom = from; binding = null; $('keysNote').textContent = ''; renderBinds(); $('keysPanel').hidden = false; $('btnKeysDone').focus(); }
+function closeKeys() { binding = null; $('keysPanel').hidden = true; if (keysFrom) keysFrom.focus(); }
+$('btnKeys').addEventListener('click', () => openKeys($('btnKeys')));
+$('btnPauseKeys').addEventListener('click', () => openKeys($('btnPauseKeys')));
+$('btnKeysDone').addEventListener('click', closeKeys);
+$('btnKeysReset').addEventListener('click', () => { KB = kbCopy(KB_DEF); binding = null; $('keysNote').textContent = 'Đã về phím mặc định.'; saveKB(); });
+function readInput(dt = 0) {
+  let x = (held('right') ? 1 : 0) - (held('left') ? 1 : 0) + stick.x;
+  let z = (held('down') ? 1 : 0) - (held('up') ? 1 : 0) + stick.y;
   const m = Math.hypot(x, z); if (m > 1) { x /= m; z /= m; }
   input.x = x; input.z = z;
-  // Shift to run; on touch, pushing the stick all the way out runs
-  input.run = keys.has('ShiftLeft') || keys.has('ShiftRight') || Math.hypot(stick.x, stick.y) > 0.92;
+  // The hit button: a tap hits soft; held past HOLD_T the swing is charged to a strong hit
+  if (hitHeld && !hitCharged) { hitT += dt; if (hitT >= HOLD_T) { hitCharged = true; action('charge'); } }
+}
+// One hit button (J, left mouse, ĐÁNH). The machine where it is pressed times the hold and tells the
+// host 'hit' (pressed), 'charge' (held long enough: strong) and 'release', so latency can't change the shot.
+const HOLD_T = 0.16;
+let hitHeld = false, hitCharged = false, hitT = 0;
+function hitDown() { if (hitHeld) return; hitHeld = true; hitCharged = false; hitT = 0; action('hit'); }
+function hitUp() { if (!hitHeld) return; hitHeld = false; powerT = 0.45; action('release'); }
+// Power bar: fills while held, turns orange at strong, stays a moment after release to show which hit it was
+let powerT = 0, powerKey = '';
+function updatePower(dt) {
+  const live = (S.state === 'serve' || S.state === 'rally' || S.state === 'point') && !S.paused && S.mode !== 'watch';
+  if (!hitHeld && powerT > 0) powerT -= dt;
+  const show = live && (hitHeld || powerT > 0), fill = hitCharged ? 1 : Math.min(1, hitT / HOLD_T);
+  const k = show ? `${hitCharged ? 'strong' : 'soft'}|${fill.toFixed(2)}` : '';
+  if (k === powerKey) return;
+  powerKey = k;
+  const el = $('power');
+  el.classList.toggle('show', show);
+  if (!show) return;
+  el.classList.toggle('strong', hitCharged); el.classList.toggle('soft', !hitCharged);
+  $('powerBar').style.transform = `scaleX(${fill})`;
 }
 function action(kind, idx = me) {
   ensureAudio();
@@ -1478,12 +1688,29 @@ function action(kind, idx = me) {
   if (S.paused || !isHuman(idx)) return;
   const a = ath(idx);
   if (kind === 'jump') { if (S.state === 'rally' || S.state === 'point') doJump(a); return; }
-  if (S.state === 'serve' && S.server === idx) { launchServe(kind === 'strong' ? 'long' : 'short'); return; }
-  // In the air the swing stays armed longer, so Space then J (or J then Space) both give a jump smash
-  if (S.state === 'rally' && a.cool <= 0) { a.swingT = 0; a.swingK = guessKind(a); a.armed = kind; a.armT = a.y > 0 ? 0.42 : 0.3; a.cool = 0.36; }
+  const serving = S.state === 'serve' && S.server === idx;
+  if (kind === 'hit') {
+    // Serve on release (tap: short) or once the hold is charged (long)
+    if (serving) { a.serveHold = true; return; }
+    // The swing winds up and waits as a soft hit; 'charge' turns it strong. While held it stays armed.
+    // In the air the swing stays armed longer, so Space then J (or J then Space) both give a jump smash
+    if (S.state === 'rally' && a.cool <= 0 && !(a.fallT > 0)) { a.swingT = 0; a.swingK = guessKind(a); a.armed = 'soft'; a.armT = a.y > 0 ? 0.42 : 0.3; a.cool = 0.36; a.holding = true; }
+    return;
+  }
+  if (kind === 'charge') {
+    if (serving && a.serveHold) { a.serveHold = false; launchServe('long'); return; }
+    if (a.holding && a.armed) a.armed = 'strong';
+    return;
+  }
+  if (kind === 'release') {
+    if (serving && a.serveHold) launchServe('short');
+    a.serveHold = a.holding = false;
+  }
 }
 const overlayOpen = () => !$('menu').hidden || !$('result').hidden || !$('lobby').hidden;
 addEventListener('keydown', e => {
+  if (binding) { captureKey(e); return; }
+  if (!$('keysPanel').hidden) { if (e.code === 'Escape') { closeKeys(); e.preventDefault(); } return; }
   if (S.mode === 'watch') {
     if (e.code === 'Escape') exitWatch('');
     else if (e.code === 'ArrowLeft' || e.code === 'KeyA') cycleWatch(-1);
@@ -1491,19 +1718,24 @@ addEventListener('keydown', e => {
     e.preventDefault(); return;
   }
   if (overlayOpen()) return;
-  if (e.code === 'Escape' || e.code === 'KeyP') { setPaused(!S.paused); e.preventDefault(); return; }
-  if (MOVE[e.code]) { keys.add(e.code); e.preventDefault(); }
-  if (e.key === 'Shift') keys.add(e.code);
-  if (e.code === 'Space') e.preventDefault();
+  const act = actOf(e.code);
+  if (e.code === 'Escape' || (e.code === 'KeyP' && !act)) { setPaused(!S.paused); e.preventDefault(); return; }
+  if (!act) return;
+  keys.add(e.code); e.preventDefault();
   if (e.repeat) return;
-  if (e.code === 'Space') action('jump');
-  if (e.code === 'KeyJ') { action('strong'); e.preventDefault(); }
-  if (e.code === 'KeyK') { action('soft'); e.preventDefault(); }
+  if (act === 'jump') action('jump');
+  else if (act === 'hit') hitDown();
 });
-addEventListener('keyup', e => keys.delete(e.code));
-addEventListener('blur', () => { keys.clear(); if (S.mode === 'ai' && S.state !== 'menu' && S.state !== 'over') setPaused(true); });
+addEventListener('keyup', e => {
+  // The key that was just picked in the key panel must not also press the focused button
+  if (e.code === bindSwallow) { bindSwallow = null; e.preventDefault(); }
+  keys.delete(e.code);
+  if (KB.hit.includes(e.code) && !held('hit')) hitUp();
+});
+addEventListener('blur', () => { keys.clear(); hitUp(); if (S.mode === 'ai' && S.state !== 'menu' && S.state !== 'over') setPaused(true); });
 document.addEventListener('visibilitychange', () => { if (S.mode === 'ai' && document.hidden && S.state !== 'menu' && S.state !== 'over') setPaused(true); });
-canvas.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') return; if (e.button === 0) action('strong'); else if (e.button === 2) action('soft'); });
+canvas.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button === 0) hitDown(); });
+addEventListener('pointerup', e => { if (e.pointerType === 'mouse' && e.button === 0) hitUp(); });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 
 const base = $('stick'), knob = $('knob'); let stickId = null;
@@ -1517,8 +1749,8 @@ base.addEventListener('pointerdown', e => { e.preventDefault(); stickId = e.poin
 base.addEventListener('pointermove', e => { if (e.pointerId === stickId) moveStick(e); });
 const endStick = e => { if (e.pointerId === stickId) { stickId = null; stick.x = stick.y = 0; knob.style.transform = ''; } };
 base.addEventListener('pointerup', endStick); base.addEventListener('pointercancel', endStick);
-$('bStrong').addEventListener('pointerdown', e => { e.preventDefault(); action('strong'); });
-$('bSoft').addEventListener('pointerdown', e => { e.preventDefault(); action('soft'); });
+$('bHit').addEventListener('pointerdown', e => { e.preventDefault(); $('bHit').setPointerCapture(e.pointerId); hitDown(); });
+for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) $('bHit').addEventListener(ev, hitUp);
 $('bJump').addEventListener('pointerdown', e => { e.preventDefault(); action('jump'); });
 function setTouch(on) { document.body.classList.toggle('touch', on); updateServeHint(); }
 setTouch(matchMedia('(pointer: coarse)').matches);
@@ -1803,6 +2035,7 @@ $('btnLobbyFill').addEventListener('click', () => {
   send({ t: 'bots', b: S.bots.map(Number) }); renderSeats();
 });
 function lanJoin() {
+  if (ws) return; // already joining or in a court: a double click must not open a second seat
   readMenu(); setFormat(document.querySelector('input[name="lfmt"]:checked').value); ensureAudio();
   if (rooms[S.court] && rooms[S.court].full) { $('menuNote').textContent = `Sân ${S.court + 1} đã đủ người. Chọn sân khác.`; $('menuNote').hidden = false; return; }
   try { localStorage.setItem(NAME_KEY, myName()); } catch (e) {}
@@ -1816,7 +2049,11 @@ function lanJoin() {
   sock.onclose = () => { if (ws === sock) lanEnd(S.mode === 'ai' ? 'Không kết nối được máy chủ LAN. Kiểm tra server.js còn chạy không.' : 'Mất kết nối với máy chủ.'); };
 }
 function lanEnd(msg) {
-  const sock = ws; ws = null; if (sock) try { sock.close(); } catch (_) {}
+  const sock = ws; ws = null;
+  // Cancelled while still connecting: the server may already have given us a seat, but a socket that
+  // never opened cannot send a close frame. Let it open, then close it properly so the seat is freed.
+  if (sock && sock.readyState === 0) { sock.onmessage = null; sock.onopen = () => { try { sock.close(); } catch (_) {} }; }
+  else if (sock) try { sock.close(); } catch (_) {}
   S.mode = 'ai'; me = 0; S.human = [true, false, false, false]; S.roster = [1, 0, 0, 0]; S.names = ['', '', '', '']; S.looks = []; S.bots = [false, false, false, false]; S.hostSeat = 0; updateTags(); updateLooks();
   for (const id of ['lobby', 'pause', 'result']) $(id).hidden = true;
   backToMenu();
@@ -1846,13 +2083,13 @@ function onNet(m) {
     const i = m.from | 0;
     if (i === me || i >= S.n || !isHuman(i)) return;
     if (m.t === 'in') {
-      const r = remoteIn[i]; r.x = clamp(+m.x || 0, -1, 1); r.z = clamp(+m.z || 0, -1, 1); r.run = !!m.r;
+      const r = remoteIn[i]; r.x = clamp(+m.x || 0, -1, 1); r.z = clamp(+m.z || 0, -1, 1);
       if (Number.isFinite(m.px) && Number.isFinite(m.pz)) {
         const vmax = RUN_SP * 1.2;
         Object.assign(r, { pos: true, px: m.px, pz: m.pz, vx: clamp(+m.vx || 0, -vmax, vmax), vz: clamp(+m.vz || 0, -vmax, vmax), at: performance.now() });
       }
     }
-    else if (m.t === 'act') action(m.k === 'soft' || m.k === 'jump' ? m.k : 'strong', i);
+    else if (m.t === 'act' && ['hit', 'charge', 'release', 'jump'].includes(m.k)) action(m.k, i);
     else if (m.t === 'pause') setPaused(!!m.on);
     else if (m.t === 'again' && S.state === 'over') newMatch();
   } else if (S.mode === 'guest') {
@@ -1868,7 +2105,7 @@ function syncHumans(prevNames = S.names) {
     const on = i === me || (i < S.n && !!S.roster[i]);
     if (on === S.human[i]) continue;
     S.human[i] = on; Object.assign(remoteIn[i], { x: 0, z: 0, run: false, pos: false });
-    const a = ath(i); a.armed = null; a.plan = null;
+    const a = ath(i); a.armed = null; a.holding = a.serveHold = false; a.plan = null;
     if (live) emit({ k: 'toast', big: on ? `${S.names[i] || 'Người chơi'} vào sân` : `${prevNames[i] || 'Một người'} đã rời sân`, small: on ? '' : 'Máy đánh thay vị trí đó', dur: 1.6 });
     if (live && !on && S.state === 'serve' && S.server === i) S.timer = 1.1;
   }
@@ -1877,7 +2114,7 @@ const r3 = v => Math.round(v * 1000) / 1000;
 const MODES = ['held', 'fly', 'rest'];
 function snapshot() {
   const p = shuttle.p, v = shuttle.v, as = a => [r3(a.x), r3(a.z), r3(a.vx), r3(a.vz), r3(a.swingT),
-    r3(a.y), r3(a.vy), SWK.indexOf(a.swingK), a.armed ? 1 : 0, r3(a.sta), a.run ? 1 : 0];
+    r3(a.y), r3(a.vy), SWK.indexOf(a.swingK), a.armed ? 1 : 0, r3(a.sta), a.run ? 1 : 0, r3(a.fallT), r3(a.fdx), r3(a.fdz)];
   return { t: 'st', s: S.state, pa: S.paused, sc: S.score, g: S.games, sv: S.server, gn: S.gameNo, ra: S.rally,
     n: S.n, hu: S.human.map(Number), a: ATH.slice(0, S.n).map(as),
     sh: [r3(p.x), r3(p.y), r3(p.z), r3(v.x), r3(v.y), r3(v.z), MODES.indexOf(shuttle.mode)],
@@ -1890,7 +2127,9 @@ function applySnap(m) {
   m.a.forEach((d, i) => {
     const a = ath(i);
     // During a rally this machine moves its own player (guestTick); the host only places it between points
-    if (i !== me || (m.s !== 'rally' && m.s !== 'point')) { a.x = d[0]; a.z = d[1]; a.vx = d[2]; a.vz = d[3]; a.run = !!d[10]; }
+    // ...and while it lies on the floor after running into its partner
+    a.fallT = d[11] || 0; a.fdx = d[12] || 0; a.fdz = d[13] || 0;
+    if (i !== me || (m.s !== 'rally' && m.s !== 'point') || a.fallT > 0) { a.x = d[0]; a.z = d[1]; a.vx = d[2]; a.vz = d[3]; a.run = !!d[10]; }
     if (a.y > 0 && d[5] <= 0) a.landT = LAND_T;
     a.y = d[5]; a.vy = d[6]; a.swingK = SWK[d[7]] || 'over'; a.armed = d[8] ? 'strong' : null; a.sta = d[9];
     if (d[4] >= 0 && (a.swingT < 0 || Math.abs(a.swingT - d[4]) > 0.1)) a.swingT = d[4];
@@ -1904,10 +2143,10 @@ function applySnap(m) {
   if (k !== hudKey) { hudKey = k; updateHUD(); updateServeHint(); }
 }
 function guestTick(dt) {
-  readInput();
+  readInput(dt);
   // Move our own player right here, same rules as the host, so it reacts without waiting on the network
   const a = ath(me), playing = (S.state === 'rally' || S.state === 'point') && !S.paused;
-  if (playing) {
+  if (playing && !(a.fallT > 0)) {
     if (a.sta <= 0) a.tired = true; else if (a.sta > 0.3) a.tired = false;
     const w = worldInput(me);
     a.run = w.run && !a.tired && Math.hypot(w.x, w.z) > 0.2;
@@ -1918,7 +2157,7 @@ function guestTick(dt) {
   if (playing) Object.assign(msg, { px: r3(a.x), pz: r3(a.z), vx: r3(a.vx), vz: r3(a.vz) });
   const k = [msg.x, msg.z, msg.r, msg.px, msg.pz].join(','), now = performance.now();
   if (k !== lastIn && now - lastInAt >= 14) { lastIn = k; lastInAt = now; send(msg); }
-  for (const a of ATH) if (a.landT > 0) a.landT -= dt;
+  for (const a of ATH) { if (a.landT > 0) a.landT -= dt; if (a.fallT > 0) a.fallT = Math.max(0, a.fallT - dt); }
   // Extrapolate the shuttle between snapshots so flight stays smooth
   if (shuttle.mode === 'fly' && !S.paused) {
     for (let t = dt; t > 0; t -= DT) stepShuttle(shuttle.p, shuttle.v, Math.min(DT, t));
@@ -1946,7 +2185,7 @@ function ghostCourt(c) {
 function summary() {
   const p = shuttle.p, v = shuttle.v, r2 = x => Math.round(x * 100) / 100;
   const m = { t: 'sum', s: S.state, n: S.n, sc: S.score, g: S.games, gn: S.gameNo, sv: S.server,
-    a: ATH.slice(0, S.n).map(a => [r2(a.x), r2(a.z), r2(a.y), r2(a.vx), r2(a.vz), r3(a.swingT), SWK.indexOf(a.swingK), r2(a.vy)]),
+    a: ATH.slice(0, S.n).map(a => [r2(a.x), r2(a.z), r2(a.y), r2(a.vx), r2(a.vz), r3(a.swingT), SWK.indexOf(a.swingK), r2(a.vy), r2(a.fallT), r2(a.fdx), r2(a.fdz)]),
     sh: [r2(p.x), r2(p.y), r2(p.z), r2(v.x), r2(v.y), r2(v.z), MODES.indexOf(shuttle.mode)] };
   // Names and looks change rarely: send them every 2 s
   if (sumN++ % 20 === 0) m.info = { names: S.names.slice(0, S.n), hu: S.human.slice(0, S.n).map(Number), looks: ATH.slice(0, S.n).map(a => a.look) };
@@ -1958,7 +2197,7 @@ function onSum(m) {
   const G = ghostCourt(c);
   G.seen = clock; G.n = m.n === 4 ? 4 : 2; G.ctx.state = m.s; G.ctx.server = m.sv | 0;
   G.sc = m.sc || [0, 0]; G.g = m.g || [0, 0]; G.gn = m.gn || 1;
-  (m.a || []).forEach((d, i) => { const a = G.players[i]; if (!a) return; if (!a.tgt) { a.x = d[0]; a.z = d[1]; } a.tgt = d; });
+  (m.a || []).forEach((d, i) => { const a = G.players[i]; if (!a) return; if (!a.tgt) { a.x = d[0]; a.z = d[1]; } a.tgt = d; a.fallT = d[8] || 0; a.fdx = d[9] || 0; a.fdz = d[10] || 0; });
   const h = m.sh, sh = G.ctx.sh;
   if (h) { Object.assign(sh.p, { x: h[0], y: h[1], z: h[2] }); Object.assign(sh.v, { x: h[3], y: h[4], z: h[5] }); sh.mode = MODES[h[6]] || 'rest'; }
   if (m.info) {
@@ -2001,6 +2240,7 @@ function updateGhosts(dt) {
       if (!a.g.visible) return;
       const d = a.tgt;
       if (a.y > 0 && d[2] <= 0) a.landT = LAND_T; else if (a.landT > 0) a.landT -= dt;
+      if (a.fallT > 0) a.fallT = Math.max(0, a.fallT - dt);
       a.x += (d[0] - a.x) * k; a.z += (d[1] - a.z) * k; a.y = d[2]; a.vx = d[3]; a.vz = d[4]; a.vy = d[7] || 0;
       if (d[5] >= 0 && (a.swingT < 0 || Math.abs(a.swingT - d[5]) > 0.15)) a.swingT = d[5];
       a.swingK = SWK[d[6]] || 'over';
@@ -2065,11 +2305,18 @@ addEventListener('resize', resize); resize();
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let last = performance.now(), acc = 0, clock = 0, shownSta = -1;
 function update(dt) {
-  readInput();
+  readInput(dt);
   const playing = S.state === 'rally' || S.state === 'point', D = DIFF[S.diff];
   for (let i = 0; i < S.n; i++) {
     const a = ath(i);
     stepBody(a, dt);
+    // On the floor: knocked back, sliding to a stop; nobody steers until back up (a guest's own position reports wait too)
+    if (a.fallT > 0) {
+      const k = Math.exp(-dt * 7); a.vx *= k; a.vz *= k; a.run = false;
+      a.x = clamp(a.x + a.vx * dt, -3.4, 3.4);
+      a.z = a.side > 0 ? clamp(a.z + a.vz * dt, 0.35, 8.2) : clamp(a.z + a.vz * dt, -8.2, -0.35);
+      continue;
+    }
     if (isHuman(i)) {
       const w = worldInput(i), r = i === me ? null : remoteIn[i];
       a.run = playing && w.run && !a.tired && Math.hypot(w.x, w.z) > 0.2;
@@ -2094,12 +2341,14 @@ function update(dt) {
     }
     moveAthlete(a, tx - a.x, tz - a.z, D.speed * (S.lastTeam === team(i) ? 0.7 : 1), dt, true);
   }
-  if (S.n === 4) separatePartners();
+  if (S.n === 4) { checkFalls(); separatePartners(); }
 
   for (let i = 0; i < S.n; i++) {
     const a = ath(i);
     a.cool -= dt;
-    if (a.armed) { a.armT -= dt; if (a.armT <= 0) a.armed = null; }
+    if (a.fallT > 0) a.fallT = Math.max(0, a.fallT - dt);
+    if (a.fallSafe > 0) a.fallSafe -= dt;
+    if (a.armed && !a.holding) { a.armT -= dt; if (a.armT <= 0) a.armed = null; }
     // Running drains stamina; once empty you walk until it is back to 30%
     a.sta = clamp(a.sta + (a.run ? -0.3 : 0.16) * dt, 0, 1);
     if (a.sta <= 0) a.tired = true; else if (a.sta > 0.3) a.tired = false;
@@ -2163,6 +2412,7 @@ function frame(now) {
   if (credit === $('credit').hidden) $('credit').hidden = !credit;
   if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('show'); }
   if (shotT > 0) { shotT -= dt; if (shotT <= 0) $('shot').classList.remove('show'); }
+  updatePower(dt);
   if ((roomsT -= dt) <= 0) { roomsT = 2; refreshRooms(); }
   const st = ath(me).sta;
   if (Math.abs(st - shownSta) > 0.004) { shownSta = st; $('staBar').style.transform = `scaleX(${st})`; $('sta').classList.toggle('low', st < 0.3); }
@@ -2172,7 +2422,7 @@ function frame(now) {
   renderPreview();
 }
 
-readMenu(); placeBackdrop();
+readMenu(); placeBackdrop(); renderKeyHints();
 if (window.SAN7_LAN) renderCourts();
 if (document.fonts && document.fonts.load) document.fonts.load('700 150px "Chakra Petch"').then(drawSigns).catch(() => {});
 

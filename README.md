@@ -25,6 +25,7 @@ Mở tab **Chơi với người** trong menu. Tab này liệt kê 5 sân: sân n
 - **Sân đầy:** danh sách sân ghi "đã đầy" và nút vào sân bị khoá. Server cũng từ chối nếu ai đó cố vào.
 
 - **Chủ sân:** người vào sân trống đầu tiên. Thể thức chủ sân chọn (đơn hay đôi) áp dụng cho cả sân, và chủ sân bấm **BẮT ĐẦU** khi mọi ghế đã có người hoặc máy.
+- **Va vào đồng đội:** khi đánh đôi, hai người cùng đội chạy vào cùng một chỗ (sát nhau) thì cả hai té. Té rồi đứng dậy mất 0,5 giây, trong lúc đó không chạy, không nhảy, không đánh được. Áp dụng cho cả người và máy.
 - **Số người:** đánh đơn 2 người, đánh đôi tối đa 4 người. Thiếu người thì chủ sân bấm **+ Thêm máy** ở ghế trống, hoặc **+ THÊM MÁY VÀO GHẾ TRỐNG** để điền hết một lần. Chỉ có một mình chủ sân cũng chơi được. Trận chỉ bắt đầu khi mọi ghế đã có người hoặc máy.
 - **Chọn vị trí:** trong phòng chờ, bấm vào một ô còn trống (sân gần hoặc sân xa, ô phải hoặc ô trái) để chuyển vào đó. Chủ sân cũng đổi được. Người mới vào được xếp tạm vào ô trống đầu tiên. Chỉ đổi được trước khi bấm **BẮT ĐẦU**.
 - **Vào, ra giữa trận:** có người vào giữa trận thì thay máy ở ghế trống. Có người rời thì máy đánh tiếp ghế đó. Chủ sân rời thì sân đóng lại.
