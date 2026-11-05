@@ -17,17 +17,27 @@ const THREE_FILE = path.join(DIR, 'vendor', 'three.min.js');
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const COURTS = 5;
 
-// Lưu Three.js về máy một lần, để lần sau chơi LAN không cần Internet.
+// Thư viện đọc model nhân vật (glTF) cho Three.js r128, cùng phiên bản với three.min.js
+const ADDONS = [
+  ['https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js', 'GLTFLoader.js'],
+  ['https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js', 'SkeletonUtils.js'],
+];
+const ASSETS = path.join(DIR, 'assets');
+
+// Lưu Three.js và thư viện đọc model về máy một lần, để lần sau chơi LAN không cần Internet.
 async function cacheThree() {
-  if (fs.existsSync(THREE_FILE)) return;
-  try {
-    const res = await fetch(THREE_URL);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    fs.mkdirSync(path.dirname(THREE_FILE), { recursive: true });
-    fs.writeFileSync(THREE_FILE, Buffer.from(await res.arrayBuffer()));
-    console.log('Đã lưu Three.js vào vendor/, lần sau chơi không cần Internet.');
-  } catch (e) {
-    console.log(`Chưa tải được Three.js (${e.message}). Trang sẽ lấy từ CDN nên cần Internet.`);
+  for (const [url, file] of [[THREE_URL, 'three.min.js'], ...ADDONS]) {
+    const dst = path.join(DIR, 'vendor', file);
+    if (fs.existsSync(dst)) continue;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      fs.mkdirSync(path.dirname(dst), { recursive: true });
+      fs.writeFileSync(dst, Buffer.from(await res.arrayBuffer()));
+      console.log(`Đã lưu ${file} vào vendor/, lần sau chơi không cần Internet.`);
+    } catch (e) {
+      console.log(`Chưa tải được ${file} (${e.message}). Trang sẽ lấy từ CDN nên cần Internet.`);
+    }
   }
 }
 
@@ -35,6 +45,7 @@ async function cacheThree() {
 function page() {
   let body = fs.readFileSync(GAME, 'utf8');
   if (fs.existsSync(THREE_FILE)) body = body.replace(THREE_URL, '/three.min.js');
+  for (const [url, file] of ADDONS) if (fs.existsSync(path.join(DIR, 'vendor', file))) body = body.replace(url, '/vendor/' + file);
   return '<!doctype html><html lang="vi"><head><meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">' +
     '<script>window.SAN7_LAN = true</script></head><body>' + body + '</body></html>';
@@ -64,7 +75,8 @@ function parseLook(raw) {
     if (!o || !['shirt', 'shorts', 'skin', 'hair', 'racket'].every(k => c(o[k])) || !HAIR.includes(o.hs)) return null;
     return { shirt: o.shirt, shorts: o.shorts, skirt: c(o.skirt) ? o.skirt : 0xf2f2ee, skin: o.skin, hair: o.hair, racket: o.racket, hs: o.hs, bt: o.bt === 'skirt' ? 'skirt' : 'shorts',
       rk: o.rk === 'custom' || o.rk === 'k520' ? 'custom' : 'plain', rkv: RACKET_IDS.includes(o.rkv) ? o.rkv : 'xanh', str: c(o.str) ? o.str : 0xf4f4f2,
-      hand: o.hand === 'L' ? 'L' : 'R' }; // tay cầm vợt: phải (mặc định) hoặc trái
+      hand: o.hand === 'L' ? 'L' : 'R', // tay cầm vợt: phải (mặc định) hoặc trái
+      body: o.body === 'f' ? 'f' : 'm' }; // dáng người: nam (mặc định) hoặc nữ
   } catch { return null; }
 }
 // Người đang mở trang: mỗi trình duyệt có một mã riêng (giữ nguyên khi tải lại trang) và hỏi /rooms vài giây một lần;
@@ -86,6 +98,22 @@ const server = http.createServer((req, res) => {
   } else if (url === '/three.min.js' && fs.existsSync(THREE_FILE)) {
     res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'max-age=86400' });
     fs.createReadStream(THREE_FILE).pipe(res);
+  } else if (ADDONS.some(([, f]) => url === '/vendor/' + f)) {
+    const file = path.join(DIR, 'vendor', path.basename(url));
+    if (!fs.existsSync(file)) { res.writeHead(404); res.end(); return; }
+    res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'max-age=86400' });
+    fs.createReadStream(file).pipe(res);
+  } else if (url.startsWith('/assets/')) {
+    // Model nhân vật và texture. Chỉ phục vụ file nằm trong thư mục assets/, đúng các đuôi cho phép.
+    const TYPES = { '.gltf': 'model/gltf+json', '.bin': 'application/octet-stream', '.jpg': 'image/jpeg', '.png': 'image/png' };
+    let file;
+    try { file = path.resolve(ASSETS, '.' + decodeURIComponent(url.slice('/assets'.length))); } catch { file = ''; }
+    const type = TYPES[path.extname(file).toLowerCase()];
+    if (!type || !file.startsWith(ASSETS + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
+      res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }); res.end('Không tìm thấy'); return;
+    }
+    res.writeHead(200, { 'content-type': type, 'cache-control': 'max-age=3600' });
+    fs.createReadStream(file).pipe(res);
   } else if (url === '/rooms') {
     const q = new URL(req.url, 'http://lan').searchParams;
     const id = (q.get('id') || '').slice(0, 32), bye = (q.get('bye') || '').slice(0, 32);
@@ -199,7 +227,7 @@ class Peer {
       if (m.info) r.info = m.info;
       const out = JSON.stringify(m);
       r.last = m.info ? out : JSON.stringify({ ...m, info: r.info });
-      for (const w of watchers) w.send(out);
+      for (const w of watchers) if (w.sock.writableLength < 65536) w.send(out);
       return;
     }
     if (text.startsWith('{"t":"seat"')) {
@@ -211,11 +239,18 @@ class Peer {
       }
       return;
     }
-    if (this === r.host) { for (const p of r.seats) if (p && p !== this) p.send(text); return; }
+    // Trạng thái trận (~60 lần/giây): người nào kết nối đang nghẽn (Wi‑Fi chập chờn…) thì bỏ qua bản này
+    // thay vì xếp hàng thêm, vì bản mới hơn tới ngay sau 16 ms; dồn bản cũ chỉ làm họ trễ thêm khi mạng thông lại.
+    if (this === r.host) {
+      const st = text.startsWith('{"t":"st"');
+      for (const p of r.seats) if (p && p !== this && !(st && p.sock.writableLength > 32768)) p.send(text);
+      return;
+    }
     if (!r.host) return;
-    let m;
-    try { m = JSON.parse(text); } catch { return; }
-    m.from = this.seat; r.host.json(m);
+    // Gắn vị trí người gửi mà không phải giải mã cả tin: thêm "from" vào cuối, nên nếu người gửi tự ghi
+    // "from" thì giá trị của server vẫn thắng (JSON lấy khoá viết sau cùng).
+    if (text[0] !== '{' || text[text.length - 1] !== '}') return;
+    r.host.send(text.length > 2 ? text.slice(0, -1) + ',"from":' + this.seat + '}' : '{"from":' + this.seat + '}');
   }
   onClose() {
     this.open = false;

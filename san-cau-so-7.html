@@ -226,6 +226,13 @@ button.seat em{font-style:normal;font-size:12px;color:var(--led)}
 .bind.wait{border-color:var(--led);background:rgba(255,181,71,.12);color:var(--led)}
 #keysNote{min-height:1.55em;font-size:13px}
 #btnCustom,.custom .done{display:none}
+/* Wide screens: your player stands in a column of its own, left of the customizer, as tall as the menu */
+.stage{display:none}
+@media (min-width:1200px){
+  .stage{display:block;flex:0 0 clamp(230px,20vw,330px);position:relative;contain:size;overflow:hidden;border:1px solid var(--edge);border-radius:12px;box-shadow:0 30px 80px rgba(0,0,0,.45);
+    background:radial-gradient(ellipse 70% 18% at 50% 90%,rgba(255,181,71,.22),transparent 70%),linear-gradient(180deg,#132536,#0c1824)}
+  .stage #preview{position:absolute;inset:0;width:100%;height:100%;border-radius:0;background:none}
+}
 /* Side by side, the customizer takes the menu card's height (contain:size ignores its own content height)
    and the options scroll inside it, so the menu never grows past the screen */
 @media (min-width:1100px){
@@ -303,6 +310,7 @@ body.watching #hint,body.watching .touch-ctl,body.watching #sta,body.watching #p
 
 <div class="overlay" id="menu">
  <div class="menu-wrap">
+  <div class="stage" id="stage"></div>
   <aside class="custom" id="custom" aria-label="Tuỳ chỉnh nhân vật">
     <div class="label-row"><span class="label">Nhân vật của bạn</span><button class="ghost mini" id="btnRandom">Ngẫu nhiên</button></div>
     <canvas id="preview" aria-label="Xem trước nhân vật"></canvas>
@@ -448,6 +456,8 @@ body.watching #hint,body.watching .touch-ctl,body.watching #sta,body.watching #p
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
 <script>
 (() => {
 const $ = id => document.getElementById(id);
@@ -597,7 +607,7 @@ function tuneGfx(ms, now) {
   if (gfx.show) {
     gfx.fSum += ms; gfx.fN++;
     if (now - gfx.fT > 500) {
-      $('fpsMeter').textContent = `${Math.round(1000 * gfx.fN / gfx.fSum)} FPS · ${(gfx.fSum / gfx.fN).toFixed(1)} ms · ${GFX_NAMES[gfx.mode]} ×${gfx.pr}`;
+      $('fpsMeter').textContent = `${Math.round(1000 * gfx.fN / gfx.fSum)} FPS · ${(gfx.fSum / gfx.fN).toFixed(1)} ms · ${GFX_NAMES[gfx.mode]} ×${gfx.pr}${netInfo()}`;
       gfx.fSum = gfx.fN = 0; gfx.fT = now;
     }
   }
@@ -824,6 +834,7 @@ function figure(look) {
   const custom = customRacket(R.wr);
   const racket = { plain, custom, center: joint(R.wr, 0, -0.62, 0), strings: [str.material, custom.strMat] };
   const f = { g, pelvis, torso, neck, legs, R, L, mats: { skin, top, bottom, hairM, frame }, hair: { cap, tail, band }, wear: { skirt, shortLegs }, racket };
+  FIGS.add(f); // gets a character model once the models have loaded (see character models below)
   applyLook(f, look);
   return f;
 }
@@ -1010,6 +1021,7 @@ function applyLook(f, look) {
     for (const [model, meshes] of Object.entries(K.heads)) for (const o of meshes) o.visible = model === P.model;
     for (const mt of [K.mats.frame, K.mats.shaft, K.mats.grip]) mt.needsUpdate = true;
   }
+  if (f.model || CHAR.ready) applyModelLook(f, look);
 }
 // A look is valid only if every colour is a 24-bit number and the hair style is known.
 // bt (shorts or skirt) and the skirt colour came later: missing in an older saved look means shorts and a white skirt.
@@ -1020,7 +1032,7 @@ function cleanLook(o) {
     ? { shirt: o.shirt, shorts: o.shorts, skirt: c(o.skirt) ? o.skirt : SKIRT_DEF, skin: o.skin, hair: o.hair, racket: o.racket, hs: o.hs, bt: o.bt === 'skirt' ? 'skirt' : 'shorts',
         // 'k520' is what this switch was called before it became 'custom'
         rk: o.rk === 'custom' || o.rk === 'k520' ? 'custom' : 'plain', rkv: RACKET_IDS.includes(o.rkv) ? o.rkv : 'xanh', str: c(o.str) ? o.str : STR_DEF,
-        hand: o.hand === 'L' ? 'L' : 'R' } : null;
+        hand: o.hand === 'L' ? 'L' : 'R', body: o.body === 'f' ? 'f' : 'm' } : null;
 }
 
 // Body poses. Right (racket) arm: sx/sz shoulder, el elbow, wr wrist. Left arm: lx/lz shoulder, le elbow.
@@ -1049,7 +1061,269 @@ const SWK = ['over', 'under', 'side'];
 // Swing timeline (s): ready → windup (held while armed) → contact → follow-through → ready
 const SW_W = 0.08, SW_C = 0.14, SW_F = 0.24, SW_END = 0.5;
 
-const baseLook = shirt => ({ shirt, shorts: 0x1f2a36, skirt: 0xf2f2ee, skin: 0xc98f6b, hair: 0x1d1a17, racket: shirt, hs: 'short', bt: 'shorts', rk: 'plain', rkv: 'xanh', str: 0xf4f4f2, hand: 'R' });
+/* ---------- character models: Quaternius "Universal Base Characters" (CC0, assets/characters) ---------- */
+// The game keeps posing its own simple skeleton (figure() + animateAthlete). Once the models have loaded,
+// every figure gets a skinned model that copies that pose each frame (driveModel) and the simple meshes are
+// hidden. If the models cannot load (no server, e.g. the claude.ai artifact) the simple figure stays.
+const CHAR_URL = 'assets/characters/';
+const CHAR = { ready: false, kinds: {}, hair: {} };
+const FIGS = new Set();
+// Model bone ← joint of the simple skeleton. Bones not listed keep their own rest rotation.
+const BONE_SRC = {
+  pelvis: f => f.pelvis, spine_01: f => f.torso, neck_01: f => f.neck,
+  upperarm_r: f => f.R.sh, lowerarm_r: f => f.R.el, hand_r: f => f.R.wr,
+  upperarm_l: f => f.L.sh, lowerarm_l: f => f.L.el, hand_l: f => f.L.wr,
+  thigh_l: f => f.legs[0].hip, calf_l: f => f.legs[0].knee, foot_l: f => f.legs[0].ankle,
+  thigh_r: f => f.legs[1].hip, calf_r: f => f.legs[1].knee, foot_r: f => f.legs[1].ankle,
+};
+// The kit is painted onto the body by height on the model in its rest pose (metres, y up; the model stands
+// in a T-pose, so how far the sleeves reach down the arm is a distance along x).
+const KIT = {
+  m: { neck: 1.47, waist: 0.975, shorts: 0.66, sleeve: 0.37, sock: 0.2, shoe: 0.105, footX: 0.131, foot: 1 },
+  f: { neck: 1.43, waist: 0.955, shorts: 0.66, sleeve: 0.31, sock: 0.19, shoe: 0.095, footX: 0.125, foot: 0.95 },
+};
+// Fingers bend towards the palm about their own x axis: a firm grip on the racket hand, relaxed on the other
+const CURL = { r: [1.15, 1.3, 0.9], l: [0.35, 0.5, 0.35] };
+// Handshake grip (see attachModel). The racket is built with its butt at the origin and the head along -y,
+// strings facing ±z; this turn puts the shaft along S = (0, cos a, sin a) and the strings' normal along +x.
+const GRIP_ANGLE = 55 * Math.PI / 180;
+const GRIP_Q = (() => {
+  const c = Math.cos(GRIP_ANGLE), s = Math.sin(GRIP_ANGLE);
+  return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(
+    new THREE.Vector3(0, -s, c), new THREE.Vector3(0, -c, -s), new THREE.Vector3(1, 0, 0)));
+})();
+// Butt of the handle, a couple of centimetres past the heel of the hand (players hold near the end)
+const GRIP_AT = new THREE.Vector3(-0.036, 0.03, -0.05).addScaledVector(new THREE.Vector3(0, Math.cos(GRIP_ANGLE), Math.sin(GRIP_ANGLE)), 0.045);
+// Sneaker, modelled on the right foot of the male body in its rest pose (side profile: z forward, y up),
+// extruded across the foot. The upper and a darker sole are two meshes.
+function shoeGeos(kit, side) {
+  const spline = pts => { const sh = new THREE.Shape(); sh.moveTo(pts[0][0], pts[0][1]); sh.splineThru(pts.slice(1).map(p => new THREE.Vector2(p[0], p[1]))); return sh; };
+  const upper = spline([[-0.135, -0.004], [0.06, -0.004], [0.125, 0.003], [0.147, 0.019], [0.136, 0.037], [0.09, 0.049], [0.02, 0.063], [-0.03, 0.091], [-0.08, 0.099], [-0.122, 0.096], [-0.147, 0.06], [-0.147, 0.018], [-0.135, -0.004]]);
+  const sole = spline([[-0.15, -0.014], [0.07, -0.014], [0.14, -0.008], [0.158, 0.008], [0.15, 0.018], [0.06, 0.012], [-0.155, 0.016], [-0.16, 0.0], [-0.15, -0.014]]);
+  const make = (shape, depth, bevel) => {
+    const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 20 });
+    g.translate(0, 0, -depth / 2); g.rotateY(-Math.PI / 2); // profile → z forward, y up; extruded across x
+    g.scale(kit.foot * 0.98, kit.foot, kit.foot); g.translate(side * kit.footX, 0, 0);
+    g.computeVertexNormals();
+    return g;
+  };
+  return { upper: make(upper, 0.076, 0.012), sole: make(sole, 0.09, 0.009) };
+}
+const SHOE_MATS = { upper: new THREE.MeshStandardMaterial({ color: 0xf1f2f4, roughness: 0.55 }), sole: new THREE.MeshStandardMaterial({ color: 0x7e858d, roughness: 0.8 }) };
+// Hair style → hair model (all four fit both bodies); 'band' adds a sweatband over long hair
+const HAIR_MODEL = { short: 'parted', tail: 'buns', band: 'long', bald: 'buzzed' };
+// Each hair model was made for one of the two heads; on the other body it is moved to that head and sized
+// to it (the male head is about 5% larger).
+const HAIR_FOR = { parted: 'm', buzzed: 'm', buns: 'f', long: 'f' }, HEAD_RATIO = 1.05;
+const SKIN_REF = new THREE.Color(0xc98f6b).convertSRGBToLinear(); // the default skin swatch leaves the texture as it is
+const _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _v1 = new THREE.Vector3(), _m1 = new THREE.Matrix4();
+// Orientation of obj relative to its ancestor `top` (rotations only: nothing in these chains is scaled unevenly)
+function quatUpTo(obj, top, out) {
+  out.copy(obj.quaternion);
+  for (let p = obj.parent; p && p !== top; p = p.parent) out.premultiply(p.quaternion);
+  return out;
+}
+const linColor = hexc => new THREE.Color(hexc).convertSRGBToLinear();
+
+function loadCharacters() {
+  if (!THREE.GLTFLoader || !THREE.SkeletonUtils) return;
+  const loader = new THREE.GLTFLoader(), get = name => new Promise((ok, fail) => loader.load(CHAR_URL + name, ok, undefined, fail));
+  Promise.all([get('male.gltf'), get('female.gltf'), ...Object.values(HAIR_MODEL).map(n => get(`hair_${n}.gltf`))]).then(([m, f, ...hair]) => {
+    CHAR.kinds.m = prepareKind(m.scene); CHAR.kinds.f = prepareKind(f.scene);
+    Object.values(HAIR_MODEL).forEach((n, i) => { CHAR.hair[n] = hair[i].scene; });
+    CHAR.ready = true;
+    for (const f of FIGS) applyLook(f, f.look || lookOfFig(f));
+    warmShaders();
+  }).catch(e => console.warn('Không tải được model nhân vật, dùng nhân vật đơn giản.', e));
+}
+const lookOfFig = f => f === pv.fig ? myLook : DEF_LOOKS[0];
+// Everything about a body that is the same for every player using it
+function prepareKind(src) {
+  src.updateMatrixWorld(true);
+  const bone = n => src.getObjectByName(n);
+  const P0 = HIP_DROP + THIGH + SHIN + FOOT; // the simple skeleton's pelvis height at rest
+  // Scale so the model's legs are as long as the simple skeleton's: feet then meet the floor in every pose
+  const s = (THIGH + SHIN + FOOT) / bone('thigh_l').getWorldPosition(_v1).y;
+  // Rest pose of every bone, relative to a figure group (the model turned to face -z like the figure).
+  // A T-pose arm is aimed straight down, as the simple skeleton's arms hang at rest.
+  const holder = new THREE.Group(), inst = THREE.SkeletonUtils.clone(src);
+  inst.rotation.y = Math.PI; inst.scale.setScalar(s); holder.add(inst); holder.updateMatrixWorld(true);
+  const rest = {};
+  for (const name of Object.keys(BONE_SRC)) {
+    const b = inst.getObjectByName(name), q = quatUpTo(b, holder, new THREE.Quaternion());
+    if (/arm|hand/.test(name)) {
+      const up = quatUpTo(inst.getObjectByName(name.replace(/lowerarm|hand/, 'upperarm')), holder, new THREE.Quaternion());
+      const dir = new THREE.Vector3(0, 1, 0).applyQuaternion(up);
+      q.premultiply(new THREE.Quaternion().setFromUnitVectors(dir, new THREE.Vector3(0, -1, 0)));
+    }
+    rest[name] = q;
+  }
+  // Where the model's pelvis bone sits relative to the simple pelvis at rest
+  const pel = holder.worldToLocal(inst.getObjectByName('pelvis').getWorldPosition(new THREE.Vector3()));
+  const pelvisOff = pel.sub(new THREE.Vector3(0, P0, 0));
+  // Head bone in model space at rest: hair and the sweatband are modelled there
+  const headInv = bone('Head').matrixWorld.clone().invert(), headPos = bone('Head').getWorldPosition(new THREE.Vector3());
+  const footInv = { l: bone('foot_l').matrixWorld.clone().invert(), r: bone('foot_r').matrixWorld.clone().invert() };
+  return { src, s, rest, pelvisOff, headInv, headPos, footInv, shoes: null };
+}
+// Clothes painted on the body by a shader: shirt, shorts, socks and shoes by height on the rest pose,
+// with the muscle detail of the normal map flattened under fabric and a duller, rougher surface there.
+function kitMaterial(base, kit, u) {
+  const m = base.clone();
+  m.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, u);
+    sh.vertexShader = 'varying vec3 vRest;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvRest = position;');
+    sh.fragmentShader = `varying vec3 vRest;
+uniform vec3 uShirt, uShorts, uSkin, uSock, uShoe;
+uniform vec4 uKitA, uKitB;
+float band(float lo, float hi, float x) { return smoothstep(lo - 0.004, lo + 0.004, x) * (1.0 - smoothstep(hi - 0.004, hi + 0.004, x)); }
+` + sh.fragmentShader
+      .replace('#include <map_fragment>', `#include <map_fragment>
+  float ax = abs(vRest.x), front = step(0.0, vRest.z);
+  // Crew neck: the shirt covers the shoulders and the slope up to the neck, leaving just the neck bare.
+  // The collar sits a little higher at the back and dips slightly at the front.
+  float collar = uKitA.x + 0.03 * (1.0 - front) - 0.03 * front * (1.0 - smoothstep(0.0, 0.08, ax));
+  float neckline = mix(collar, 1.62, smoothstep(0.072, 0.098, ax));
+  float shirtM = band(uKitA.y, neckline, vRest.y) * (1.0 - smoothstep(uKitA.w - 0.005, uKitA.w + 0.005, ax));
+  float shortsM = (1.0 - shirtM) * band(uKitA.z, uKitA.y + 0.05, vRest.y) * step(ax, 0.42);
+  float shoeM = 1.0 - smoothstep(uKitB.y - 0.004, uKitB.y + 0.004, vRest.y);
+  float sockM = (1.0 - shoeM) * (1.0 - smoothstep(uKitB.x - 0.004, uKitB.x + 0.004, vRest.y));
+  float cloth = clamp(shirtM + shortsM + sockM + shoeM, 0.0, 1.0);
+  vec3 sole = uShoe * mix(0.45, 1.0, smoothstep(0.018, 0.026, vRest.y));
+  vec3 clothCol = shirtM * uShirt + shortsM * uShorts + sockM * uSock + shoeM * sole;
+  diffuseColor.rgb = mix(diffuseColor.rgb * uSkin, clothCol, cloth);`)
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = mix(roughnessFactor, 0.88, cloth);')
+      .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  vec3 restNormal = normal;')
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n  normal = normalize(mix(normal, restNormal, cloth * 0.8));');
+  };
+  m.customProgramCacheKey = () => 'san7-kit';
+  u.uKitA.value.set(kit.neck, kit.waist, kit.shorts, kit.sleeve); u.uKitB.value.set(kit.sock, kit.shoe, 0, 0);
+  return m;
+}
+// Hair and eyebrows: the texture's light and shade, in the player's hair colour
+function hairMaterial(base, u) {
+  const m = base.clone();
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uHair = u.uHair;
+    sh.fragmentShader = 'uniform vec3 uHair;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+  float lum = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+  diffuseColor.rgb = uHair * clamp(0.35 + lum * 2.6, 0.0, 1.8);`);
+  };
+  m.customProgramCacheKey = () => 'san7-hair';
+  return m;
+}
+// Give figure f the model for body kind ('m' or 'f'), replacing the one it has
+function attachModel(f, kind) {
+  const K = CHAR.kinds[kind], old = f.model;
+  const inst = THREE.SkeletonUtils.clone(K.src);
+  inst.rotation.y = Math.PI; inst.scale.setScalar(K.s);
+  const u = { uShirt: { value: new THREE.Color() }, uShorts: { value: new THREE.Color() }, uSkin: { value: new THREE.Color(1, 1, 1) },
+    uSock: { value: linColor(0xf4f4f0) }, uShoe: { value: linColor(0xeceef0) }, uHair: { value: new THREE.Color() },
+    uKitA: { value: new THREE.Vector4() }, uKitB: { value: new THREE.Vector4() } };
+  inst.traverse(o => {
+    if (!o.isMesh) return;
+    o.castShadow = true; o.frustumCulled = false; // bones move the mesh beyond its rest bounds
+    if (/Superhero/i.test(o.material.name)) o.material = kitMaterial(o.material, KIT[kind], u);
+    else if (/Hair/i.test(o.material.name)) o.material = hairMaterial(o.material, u); // eyebrows
+  });
+  // Bones in parent-before-child order, each with the simple-skeleton joint that drives it (or none)
+  const order = [], src = [], parentIdx = [];
+  const root = inst.getObjectByName('root');
+  (function walk(b, pi) {
+    if (!b.isBone) return;
+    const i = order.length; order.push(b); parentIdx.push(pi);
+    src.push(BONE_SRC[b.name] ? { joint: BONE_SRC[b.name](f), rest: K.rest[b.name] } : null);
+    for (const c of b.children) walk(c, i);
+  })(root, -1);
+  const head = inst.getObjectByName('Head');
+  // Hair: every style is built once per player and shown or hidden by the look
+  const hair = {};
+  const headHolder = new THREE.Group(); headHolder.matrixAutoUpdate = false; headHolder.matrix.copy(K.headInv); head.add(headHolder);
+  for (const [n, scn] of Object.entries(CHAR.hair)) {
+    const h = scn.clone();
+    h.traverse(o => { if (o.isMesh) { o.castShadow = true; o.material = hairMaterial(o.material, u); } });
+    const author = HAIR_FOR[n];
+    if (author !== kind) {
+      // Made for the other head: move it from that head onto this one and size it to fit
+      const from = CHAR.kinds[author].headPos, r = kind === 'm' ? HEAD_RATIO : 1 / HEAD_RATIO;
+      const fit = new THREE.Group(); fit.matrixAutoUpdate = false;
+      fit.matrix.makeTranslation(K.headPos.x, K.headPos.y, K.headPos.z).multiply(_m1.makeScale(r, r, r)).multiply(new THREE.Matrix4().makeTranslation(-from.x, -from.y, -from.z));
+      fit.add(h); headHolder.add(fit);
+    } else headHolder.add(h);
+    hair[n] = h;
+  }
+  // Sweatband round the forehead, tipped down a little at the front (rest-pose head, model faces +z)
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.014, 8, 32), f.mats.top);
+  band.rotation.x = Math.PI / 2 - 0.22; band.scale.set(0.98, 1.12, 1.4); band.castShadow = true;
+  band.position.set(0, kind === 'f' ? 1.692 : 1.738, -0.012);
+  headHolder.add(band);
+  // Fingers: a grip on the racket hand, a loose curl on the other
+  for (const side of ['r', 'l']) for (const fg of ['index', 'middle', 'ring', 'pinky']) CURL[side].forEach((a, j) => {
+    const b = inst.getObjectByName(`${fg}_0${j + 1}_${side}`); if (b) b.quaternion.multiply(_q2.setFromAxisAngle(_v1.set(1, 0, 0), a));
+  });
+  for (const [n, a] of [['thumb_02_r', 0.45], ['thumb_03_r', 0.5]]) { const b = inst.getObjectByName(n); if (b) b.quaternion.multiply(_q2.setFromAxisAngle(_v1.set(1, 0, 0), a)); }
+  // Shoes, fixed to the foot bones (shared geometry per body)
+  if (!K.shoes) { const kit = KIT[kind]; K.shoes = { r: shoeGeos(kit, -1), l: shoeGeos(kit, 1) }; }
+  for (const side of ['l', 'r']) {
+    const h = new THREE.Group(); h.matrixAutoUpdate = false; h.matrix.copy(K.footInv[side]);
+    for (const part of ['upper', 'sole']) { const o = new THREE.Mesh(K.shoes[side][part], SHOE_MATS[part]); o.castShadow = true; h.add(o); }
+    inst.getObjectByName('foot_' + side).add(h);
+  }
+  // The racket goes in the model's hand with a handshake grip. In the hand bone's frame +y runs along the
+  // fingers, +z is the thumb side and -x the palm. The handle lies diagonally across the palm, butt at the
+  // heel of the hand on the little-finger side; the shaft leaves between thumb and index finger, turned
+  // GRIP_ANGLE from the fingers towards the thumb, with the strings parallel to the palm.
+  const grip = new THREE.Group();
+  grip.quaternion.copy(GRIP_Q); grip.scale.setScalar(1 / K.s); grip.position.copy(GRIP_AT);
+  inst.getObjectByName('hand_r').add(grip);
+  grip.add(f.racket.plain, f.racket.custom.g, f.racket.center);
+  if (old) f.g.remove(old.inst);
+  f.g.add(inst);
+  // The simple body is hidden (the skirt stays: it hangs from the simple pelvis, which the model follows)
+  const keep = new Set([f.wear.skirt]);
+  const hidden = old ? old.hidden : [];
+  if (!old) f.g.traverse(o => { if (o.isMesh && !keep.has(o) && !isRacketPart(f, o) && !inst.getObjectById(o.id)) hidden.push(o); });
+  f.model = { kind, inst, order, src, parentIdx, u, hair, band, hidden, pelvisParent: root, base: new THREE.Quaternion(), G: order.map(() => new THREE.Quaternion()) };
+  f.model.pelvisBone = inst.getObjectByName('pelvis');
+}
+function isRacketPart(f, o) { for (let p = o; p; p = p.parent) if (p === f.racket.plain || p === f.racket.custom.g) return true; return false; }
+function applyModelLook(f, look) {
+  const kind = look.body === 'f' ? 'f' : 'm';
+  if (!f.model || f.model.kind !== kind) attachModel(f, kind);
+  const M = f.model, u = M.u;
+  for (const o of M.hidden) o.visible = false;
+  u.uShirt.value.copy(linColor(look.shirt));
+  u.uShorts.value.copy(linColor(look.bt === 'skirt' ? look.skirt : look.shorts));
+  const sk = linColor(look.skin); u.uSkin.value.setRGB(sk.r / SKIN_REF.r, sk.g / SKIN_REF.g, sk.b / SKIN_REF.b);
+  u.uHair.value.copy(linColor(look.hair));
+  const hm = HAIR_MODEL[look.hs] || 'parted';
+  for (const [n, h] of Object.entries(M.hair)) h.visible = n === hm;
+  M.band.visible = look.hs === 'band';
+}
+// Copy the simple skeleton's pose onto the model: each driven bone takes its joint's orientation (relative to
+// the figure) times the bone's rest offset; the rest keep their own rotation under their parent.
+function driveModel(f) {
+  const M = f.model;
+  if (!M || !f.g.visible) return;
+  const G = M.G;
+  quatUpTo(M.order[0].parent, f.g, M.base);
+  for (let i = 0; i < M.order.length; i++) {
+    const b = M.order[i], s = M.src[i], PG = M.parentIdx[i] < 0 ? M.base : G[M.parentIdx[i]];
+    if (s) {
+      quatUpTo(s.joint, f.g, G[i]).multiply(s.rest);
+      b.quaternion.copy(_q1.copy(PG).invert()).multiply(G[i]);
+    } else G[i].multiplyQuaternions(PG, b.quaternion);
+  }
+  // Pelvis position: the simple pelvis plus the rest offset between the two, turned with the pelvis
+  const K = CHAR.kinds[M.kind];
+  _v1.copy(K.pelvisOff).applyQuaternion(f.pelvis.quaternion).add(f.pelvis.position);
+  M.pelvisParent.updateWorldMatrix(true, false);
+  f.g.updateWorldMatrix(true, false);
+  _v1.applyMatrix4(f.g.matrixWorld);
+  M.pelvisBone.position.copy(M.pelvisParent.worldToLocal(_v1));
+}
+
+const baseLook = shirt => ({ shirt, shorts: 0x1f2a36, skirt: 0xf2f2ee, skin: 0xc98f6b, hair: 0x1d1a17, racket: shirt, hs: 'short', bt: 'shorts', rk: 'plain', rkv: 'xanh', str: 0xf4f4f2, hand: 'R', body: 'm' });
 function makeAthlete(idx, look, parent = scene) {
   const f = figure(look), side = sideT(team(idx));
   if (side < 0) f.g.rotation.y = Math.PI;
@@ -1282,7 +1556,7 @@ const trail = new THREE.Mesh(trailGeo, new THREE.MeshBasicMaterial({ vertexColor
 trail.frustumCulled = false; scene.add(trail);
 let trailHot = 0; // 1 for a smash, 0 for every other shot
 function resetTrail() { for (let i = 0; i < TRAIL; i++) { trailPos[i * 3] = shuttle.p.x; trailPos[i * 3 + 1] = shuttle.p.y; trailPos[i * 3 + 2] = shuttle.p.z; } }
-function pushTrail() { trailPos.copyWithin(3, 0, (TRAIL - 1) * 3); trailPos[0] = shuttle.p.x; trailPos[1] = shuttle.p.y; trailPos[2] = shuttle.p.z; }
+function pushTrail(p = shuttle.p) { trailPos.copyWithin(3, 0, (TRAIL - 1) * 3); trailPos[0] = p.x; trailPos[1] = p.y; trailPos[2] = p.z; }
 const ribP = new THREE.Vector3(), ribD = new THREE.Vector3(), ribS = new THREE.Vector3();
 function buildTrail() {
   const h = trailHot, w0 = 0.04 + h * 0.04, lum = 0.5 + h * 0.5, cr = lum, cg = lum * (1 - h * 0.38), cb = lum * (1 - h * 0.75);
@@ -1372,7 +1646,8 @@ function fxEvent(ev) {
     if (P.ring) shock(ev.x, ev.y, ev.z, P.ring, 0xffc070, 0.9, dir);
     trailHot = tier >= 2 ? 1 : 0; shPop = 1;
     shake(P.shake);
-    if (P.stop && !reduceMotion && S.mode !== 'guest') stopT = Math.max(stopT, P.stop);
+    // (not for a LAN guest's hit: the host takes it in after the fact, and the guest has already drawn it at full speed)
+    if (P.stop && !reduceMotion && S.mode !== 'guest' && ev.g == null) stopT = Math.max(stopT, P.stop);
   } else if (ev.kind === 'land') {
     spawnSparks(ev.x, 0.04, ev.z, 12, 1.3, DUST, { up: 1.4, life: 0.55, grav: 3 });
     shock(ev.x, 0.02, ev.z, 0.55, 0xdde6ee, 0.5);
@@ -1465,9 +1740,13 @@ function sfx(kind) {
 const S = { mode: 'ai', fmt: 'don', n: 2, court: 0, state: 'menu', paused: false, diff: 'vua', score: [0, 0], games: [0, 0],
   server: 0, receiver: 1, right: [0, 1], resp: [-1, -1], lastWin: 0, gameNo: 1, history: [], rally: 0, best: 0,
   lastHitter: null, lastTeam: null, lastType: null, isServe: false, netFault: false, boxXs: 1, timer: 0, flightT: 0,
-  gameOver: false, matchOver: false, showMarker: true, human: [true, false, false, false], roster: [1, 0, 0, 0], names: ['', '', '', ''], looks: [], bots: [false, false, false, false], hostSeat: 0 };
+  hits: 0, simT: 0, gameOver: false, matchOver: false, showMarker: true, human: [true, false, false, false], roster: [1, 0, 0, 0], names: ['', '', '', ''], looks: [], bots: [false, false, false, false], hostSeat: 0 };
 const isTouch = () => document.body.classList.contains('touch');
 let me = 0; // which player this screen controls (on LAN any seat, the host included)
+// LAN host: the shuttle's recent path (to take a guest's hit back in time), a landing waiting for a guest's screen
+// to show it, the wall-clock time the physics is at, and the slide of the drawn shuttle after such a hit (takeGuestHit)
+const hostHist = [], shVis = { x: 0, y: 0, z: 0 };
+let pendLand = null, simWall = 0;
 const partnerOf = i => S.n === 4 ? i ^ 2 : i;
 const members = t => S.n === 4 ? [t, t + 2] : [t];
 const isHuman = idx => S.human[idx];
@@ -1483,8 +1762,9 @@ function teamName(t) {
   return S.n === 4 ? 'Đội kia' : 'Đối thủ';
 }
 // LAN players' sticks, each in that player's own screen frame (far team sees the court flipped)
-// pos: the guest has sent its own position (px, pz, vx, vz, received at time `at`), see update()
-const remoteIn = [0, 1, 2, 3].map(() => ({ x: 0, z: 0, run: false, pos: false, px: 0, pz: 0, vx: 0, vz: 0, at: 0 }));
+// pos: the guest is sending its own position, see update()
+// clk/buf: its position reports, drawn a little in the past (see netClock); vt: how far its screen has got (host clock)
+const remoteIn = [0, 1, 2, 3].map(() => ({ x: 0, z: 0, run: false, pos: false, vt: 0, clk: netClock(), buf: [] }));
 function worldInput(idx) {
   const r = idx === me ? input : remoteIn[idx];
   return team(idx) ? { x: -r.x, z: -r.z, run: r.run } : r;
@@ -1554,7 +1834,7 @@ function placeForServe() {
   }
 }
 function setupServe() {
-  S.state = 'serve'; S.isServe = false; S.netFault = false; S.rally = 0; S.lastHitter = S.lastTeam = null; S.resp = [-1, -1];
+  S.state = 'serve'; S.isServe = false; S.netFault = false; S.rally = 0; pendLand = null; S.lastHitter = S.lastTeam = null; S.resp = [-1, -1];
   shuttle.mode = 'held'; hideRing();
   placeForServe();
   for (const a of ATH) { a.armed = null; a.holding = a.serveHold = false; a.plan = null; a.leave = false; }
@@ -1577,7 +1857,8 @@ function bestGap(t, depth, jitter) {
   }
   return best;
 }
-function doHit(idx, type) {
+// Where a hit sends the shuttle: from where it is, at a target picked for the shot
+function aimShot(idx, type) {
   const a = ath(idx), t = team(idx), from = { x: shuttle.p.x, y: shuttle.p.y, z: shuttle.p.z }, opp = -a.side, sh = SHOTS[type];
   const serve = type === 'long' || type === 'short', dbl = S.n === 4;
   const range = serve && type === 'long' && dbl ? [5.45, 5.85] : sh.depth; // doubles long serve must beat the long service line
@@ -1601,16 +1882,21 @@ function doHit(idx, type) {
   }
   if (serve) tx = S.boxXs * Math.abs(tx);
   const target = { x: clamp(tx, -3.5, 3.5), z: opp * clamp(depth, 0.5, 7.3) };
-  const sol = solveShot(from, target, sh.elevs, sh.min || 0);
-  shuttle.v = { ...sol.vel }; shuttle.mode = 'fly';
-  S.lastHitter = idx; S.lastTeam = t; S.lastType = type; S.isServe = serve; S.netFault = false;
+  return { from, vel: solveShot(from, target, sh.elevs, sh.min || 0).vel };
+}
+function doHit(idx, type) { const s = aimShot(idx, type); finishHit(idx, type, s.from, s.vel); }
+// g: the seat of a LAN guest whose own screen already showed this hit (it skips its copies of the sound and sparks)
+function finishHit(idx, type, from, vel, g) {
+  const a = ath(idx), t = team(idx), serve = type === 'long' || type === 'short';
+  shuttle.p = { ...from }; shuttle.v = { ...vel }; shuttle.mode = 'fly';
+  S.lastHitter = idx; S.lastTeam = t; S.lastType = type; S.isServe = serve; S.netFault = false; S.hits++;
   S.rally++; S.best = Math.max(S.best, S.rally); S.flightT = 0;
   const h = from.y - a.y;
   a.swingK = serve ? 'under' : h > 1.75 ? 'over' : h < 1.05 ? 'under' : 'side';
   if (!(a.swingT >= SW_W && a.swingT < SW_C)) a.swingT = SW_W + 0.01;
-  play(type === 'smash' || type === 'jsmash' ? 'smash' : 'hit');
-  emit({ k: 'fx', kind: 'hit', type, x: r3(from.x), y: r3(from.y), z: r3(from.z), vx: r3(sol.vel.x), vy: r3(sol.vel.y), vz: r3(sol.vel.z) });
-  emit({ k: 'shot', idx, type });
+  emit({ k: 'sfx', kind: type === 'smash' || type === 'jsmash' ? 'smash' : 'hit', g });
+  emit({ k: 'fx', kind: 'hit', type, x: r3(from.x), y: r3(from.y), z: r3(from.z), vx: r3(vel.x), vy: r3(vel.y), vz: r3(vel.z), g });
+  emit({ k: 'shot', idx, type, g });
   const pred = simulate(shuttle.p, shuttle.v, true);
   Object.assign(RD, { vis: pred.z * a.side < 0 && (pred.netY === null || pred.netY >= C.netH), x: pred.x, z: pred.z,
     out: (serve ? boxOut(pred.x, pred.z) : courtOut(pred.x, pred.z)) > 0.02, to: 1 - t });
@@ -1716,7 +2002,8 @@ function tryHits() {
     if (Math.sign(p.z) !== a.side || Math.abs(p.z) < 0.05 || p.y < 0.12 || p.y > 2.75 + a.y) continue;
     const hc = hitCenter(a);
     if (Math.hypot(p.x - hc.x, p.z - hc.z) > (isHuman(i) ? 1.1 : 0.95)) continue;
-    if (isHuman(i)) { if (a.armed) { const k = a.armed; a.armed = null; doHit(i, humanShot(k, i)); return; } continue; }
+    // A LAN guest judges its own hits on its own screen (guestHit); the host only takes them in (takeGuestHit)
+    if (isHuman(i)) { if (S.mode === 'host' && i !== me) continue; if (a.armed) { const k = a.armed; a.armed = null; doHit(i, humanShot(k, i)); return; } continue; }
     // A computer player hits if it is the responder, or covers for a computer partner that is out of position
     const r = S.resp[t];
     if (aiPick < 0 && r >= 0 && !ath(r).leave && (r === i || !isHuman(r))) aiPick = i;
@@ -1736,9 +2023,25 @@ function physicsStep(dt) {
       emit({ k: 'fx', kind: 'net', x: r3(xc), y: r3(yc), z: 0 });
     }
   }
-  if (p.y <= 0) { p.y = 0.03; shuttle.mode = 'rest'; play('land'); emit({ k: 'fx', kind: 'land', x: r3(p.x), z: r3(p.z) }); landed(p.x, p.z); }
+  if (p.y <= 0) { p.y = 0.03; shuttle.mode = 'rest'; touchDown(p.x, p.z); }
 }
 
+// The shuttle is down. A LAN guest on that side sees the match a little late and may have hit it on its screen
+// just before (takeGuestHit): wait until that guest's screen has shown it down (at most 0.6 s), then judge it.
+function touchDown(x, z) {
+  const half = z > 0 ? 0 : 1;
+  if (S.mode === 'host' && S.state === 'rally' && !S.netFault && half !== S.lastTeam && members(half).some(i => isHuman(i) && i !== me)) {
+    pendLand = { x, z, half, w: simWall, until: performance.now() + 600 }; return;
+  }
+  landFx(x, z); landed(x, z);
+}
+function landFx(x, z) { play('land'); emit({ k: 'fx', kind: 'land', x: r3(x), z: r3(z) }); }
+function checkLanding() {
+  const q = pendLand;
+  if (!q) return;
+  const seen = members(q.half).every(i => !isHuman(i) || i === me || remoteIn[i].vt > q.w + 10);
+  if (seen || performance.now() > q.until) { pendLand = null; landFx(q.x, q.z); landed(q.x, q.z); }
+}
 function landed(x, z) {
   if (S.state !== 'rally') return;
   const ht = S.lastTeam; let winner, reason;
@@ -2082,6 +2385,7 @@ showTab(savedTab ? savedTab === 'lan' : !!window.SAN7_LAN);
 
 /* ---------- character customizer ---------- */
 const LOOK_OPTS = [
+  { pick: 'body', label: 'Dáng người', opts: [['m', 'Nam'], ['f', 'Nữ']] },
   { k: 'shirt', label: 'Áo', colors: [0xf0643a, 0x3f9ef0, 0xe8a23a, 0x5b6ff0, 0x2fbf71, 0xe5484d, 0xc056d8, 0x14b8a6, 0xf2f2ee, 0x2b2f36] },
   // A `pick` row is a two-way switch; a row with `when` only shows while that switch is on that value.
   // Shorts and skirt each keep their own colour, and so do the plain racket and the custom one.
@@ -2185,16 +2489,29 @@ const pvTmp = new THREE.Vector3();
   f.legs.forEach(l => { l.hip.rotation.x = 0.15; l.knee.rotation.x = -0.3; l.ankle.rotation.x = 0.15; ext = THIGH * Math.cos(0.15) + SHIN * Math.cos(-0.15); });
   f.pelvis.position.y = HIP_DROP + FOOT + ext;
 }
+// Wide screens show the preview in its own column (#stage); otherwise it sits at the top of the customizer
+const stageMQ = matchMedia('(min-width:1200px)'), pvSlot = document.createComment('preview');
+pv.canvas.before(pvSlot);
+function placePreview() { if (stageMQ.matches) $('stage').append(pv.canvas); else pvSlot.after(pv.canvas); }
+stageMQ.addEventListener ? stageMQ.addEventListener('change', placePreview) : stageMQ.addListener(placePreview);
+placePreview();
 function renderPreview() {
   if ($('menu').hidden || !pv.canvas.offsetWidth) return;
   const w = pv.canvas.clientWidth, h = pv.canvas.clientHeight;
-  if (w !== pv.w || h !== pv.h) { pv.w = w; pv.h = h; pv.renderer.setSize(w, h, false); pv.cam.aspect = w / h; pv.cam.updateProjectionMatrix(); }
+  if (w !== pv.w || h !== pv.h) {
+    pv.w = w; pv.h = h; pv.renderer.setSize(w, h, false); pv.cam.aspect = w / h; pv.cam.updateProjectionMatrix();
+    // Far enough back to fit 2.3 m of height and 1.2 m of width (body, raised racket, reaching arms)
+    const t = 2 * Math.tan(THREE.MathUtils.degToRad(pv.cam.fov / 2));
+    pv.dist = Math.max(2.3 / t, 1.2 / (t * pv.cam.aspect));
+  }
   pv.fig.g.rotation.y = Math.PI + (reduceMotion ? 0.5 : Math.sin(clock * 0.6) * 0.9);
   // Ease between the full-body view and a close-up of the racket head
   pv.zoom += ((clock < pv.zoomUntil ? 1 : 0) - pv.zoom) * (reduceMotion ? 1 : 0.08);
+  driveModel(pv.fig);
   pv.fig.g.updateMatrixWorld(true);
   const t = pv.fig.racket.center.getWorldPosition(pvTmp), z = pv.zoom;
-  pv.cam.position.set(t.x * z, 1.15 + (t.y + 0.05 - 1.15) * z, 5.2 + (t.z + 1.25 - 5.2) * z);
+  const D = pv.dist || 5.2;
+  pv.cam.position.set(t.x * z, 1.15 + (t.y + 0.05 - 1.15) * z, D + (t.z + 1.25 - D) * z);
   pv.cam.lookAt(t.x * z, 1.05 + (t.y - 1.05) * z, t.z * z);
   pv.renderer.render(pv.scene, pv.cam);
 }
@@ -2406,12 +2723,18 @@ function onNet(m) {
     const i = m.from | 0;
     if (i === me || i >= S.n || !isHuman(i)) return;
     if (m.t === 'in') {
-      const r = remoteIn[i]; r.x = clamp(+m.x || 0, -1, 1); r.z = clamp(+m.z || 0, -1, 1);
+      const r = remoteIn[i], now = performance.now(); r.x = clamp(+m.x || 0, -1, 1); r.z = clamp(+m.z || 0, -1, 1); r.run = !!m.r;
+      if (Number.isFinite(m.vt)) r.vt = +m.vt;
       if (Number.isFinite(m.px) && Number.isFinite(m.pz)) {
-        const vmax = RUN_SP * 1.2;
-        Object.assign(r, { pos: true, px: m.px, pz: m.pz, vx: clamp(+m.vx || 0, -vmax, vmax), vz: clamp(+m.vz || 0, -vmax, vmax), at: performance.now() });
+        const vmax = RUN_SP * 1.2, L = r.buf[r.buf.length - 1];
+        let t = clockIn(r.clk, +m.tm, now);
+        if (L && t < L.t) t = L.t;
+        r.buf.push({ t, d: [m.px, m.pz, clamp(+m.vx || 0, -vmax, vmax), clamp(+m.vz || 0, -vmax, vmax)] });
+        while (r.buf.length > 2 && r.buf[1].t < now - 1000) r.buf.shift();
+        r.pos = true;
       }
     }
+    else if (m.t === 'hit') send({ t: 'hitAck', i, id: m.id | 0, ok: takeGuestHit(i, m) ? 1 : 0 });
     else if (m.t === 'act' && ['hit', 'charge', 'release', 'jump'].includes(m.k)) action(m.k, i);
     else if (m.t === 'pause') setPaused(!!m.on);
     else if (m.t === 'again' && S.state === 'over') newMatch();
@@ -2420,8 +2743,11 @@ function onNet(m) {
     else if (m.t === 'ev') {
       // Our own jump already made its sound here when the button was pressed
       if (m.k === 'sfx' && m.kind === 'jump' && jumpHeard && performance.now() - jumpHeard < 800) { jumpHeard = 0; return; }
+      // ...and our own hit its sound, sparks and shot name
+      if (m.g === me && (m.k === 'sfx' || m.k === 'fx' || m.k === 'shot')) return;
       handleEv(m);
     }
+    else if (m.t === 'hitAck') { if ((m.i | 0) === me && NET.hit && NET.hit.id === m.id) NET.hit.ok = !!m.ok; }
     else if (m.t === 'bots') { S.bots = (m.b || []).map(Boolean); if (!$('lobby').hidden) renderSeats(); }
   }
 }
@@ -2432,7 +2758,8 @@ function syncHumans(prevNames = S.names) {
   for (let i = 0; i < 4; i++) {
     const on = i === me || (i < S.n && !!S.roster[i]);
     if (on === S.human[i]) continue;
-    S.human[i] = on; Object.assign(remoteIn[i], { x: 0, z: 0, run: false, pos: false });
+    // (a new connection, maybe a reloaded page: its clock and position reports start afresh)
+    S.human[i] = on; Object.assign(remoteIn[i], { x: 0, z: 0, run: false, pos: false, vt: 0, clk: netClock(), buf: [], prevRt: null });
     const a = ath(i); a.armed = null; a.holding = a.serveHold = false; a.plan = null;
     if (live) emit({ k: 'toast', big: on ? `${S.names[i] || 'Người chơi'} vào sân` : `${prevNames[i] || 'Một người'} đã rời sân`, small: on ? '' : 'Máy đánh thay vị trí đó', dur: 1.6 });
     if (live && !on && S.state === 'serve' && S.server === i) S.timer = 1.1;
@@ -2446,97 +2773,179 @@ function snapshot() {
   return { t: 'st', tm: Math.round(performance.now()), s: S.state, pa: S.paused, sc: S.score, g: S.games, sv: S.server, gn: S.gameNo, ra: S.rally,
     n: S.n, hu: S.human.map(Number), a: ATH.slice(0, S.n).map(as),
     sh: [r3(p.x), r3(p.y), r3(p.z), r3(v.x), r3(v.y), r3(v.z), MODES.indexOf(shuttle.mode)],
-    rg: [RD.vis ? 1 : 0, r3(RD.x), r3(RD.z), RD.out ? 1 : 0, RD.to] };
+    rg: [RD.vis ? 1 : 0, r3(RD.x), r3(RD.z), RD.out ? 1 : 0, RD.to],
+    // For a guest judging its own hits: last team to hit, serve or not, the receiver, net fault, hit count
+    hx: [S.lastTeam ?? -1, S.isServe ? 1 : 0, S.receiver, S.netFault ? 1 : 0, S.hits],
+    hs: stopT > 0 ? 1 : 0 }; // hit-stop: the match is running at a quarter speed
 }
 function applySnap(m) {
   if (m.n !== S.n) setFormat(m.n === 4 ? 'doi' : 'don');
   if (!$('lobby').hidden && m.s !== 'menu') { $('lobby').hidden = true; toast('Vào trận', `Sân ${S.court + 1} · ${team(me) ? 'bạn đứng sân xa' : 'bạn đứng sân gần'}`, 1.6); }
   S.state = m.s; S.score = m.sc; S.games = m.g; S.server = m.sv; S.gameNo = m.gn; S.rally = m.ra; S.human = m.hu.map(Boolean);
-  const now = performance.now(), t = snapTime(m, now), still = !!m.pa;
-  m.a.forEach((d, i) => {
-    const a = ath(i);
-    a.fallT = d[11] || 0; a.fdx = d[12] || 0; a.fdz = d[13] || 0;
-    // During a rally this machine moves its own player (guestTick); the host only places it between points
-    // ...and while it lies on the floor after running into its partner
-    const local = i === me && (m.s === 'rally' || m.s === 'point') && !(a.fallT > 0);
-    if (local) a.net = null;
-    else {
-      // Keep the player where it is on screen: the gap to the new report is closed over the next frames
-      const n = { x: d[0], z: d[1], vx: d[2], vz: d[3], y: d[5], vy: d[6], t, still }, q = netPos(a, n, now);
-      const o = a.off || (a.off = { x: 0, z: 0 }), shown = a.net ? netPos(a, a.net, now) : null;
-      o.x = shown ? shown.x + o.x - q.x : a.x - q.x; o.z = shown ? shown.z + o.z - q.z : a.z - q.z;
-      if (Math.hypot(o.x, o.z) > 1.5) o.x = o.z = 0; // placed for a new point: jump straight there
-      a.net = n; a.run = !!d[10];
-    }
-    a.sta = d[9];
-    if (a.fallT > 0) a.predT = 0;
-    if (i === me && a.predT > 0) {
-      // Our own swing started here when the button was pressed: follow the host's only once its swing goes
-      // past the wind-up (the hit, or the armed time ran out)
-      if (a.swingT >= 0 && a.swingT <= SW_W + 0.005 && d[4] > SW_W + 0.005 && d[4] < SW_F) { a.swingT = d[4]; a.swingK = SWK[d[7]] || a.swingK; a.armed = null; a.holding = false; }
-    } else {
-      a.swingK = SWK[d[7]] || 'over'; a.armed = d[8] ? 'strong' : null;
-      if (d[4] >= 0 && (a.swingT < 0 || Math.abs(a.swingT - d[4]) > 0.1)) a.swingT = d[4];
-    }
-  });
-  const h = m.sh, sh = { p: { x: h[0], y: h[1], z: h[2] }, v: { x: h[3], y: h[4], z: h[5] }, mode: MODES[h[6]] || 'rest', t, still };
-  if (netSh && sh.mode !== 'held' && netSh.mode !== 'held') {
-    const o = shAt(netSh, now), q = shAt(sh, now);
-    shOff.x += o.p.x - q.p.x; shOff.y += o.p.y - q.p.y; shOff.z += o.p.z - q.p.z;
-    if (Math.hypot(shOff.x, shOff.y, shOff.z) > 2.5) shOff.x = shOff.y = shOff.z = 0;
-  } else shOff.x = shOff.y = shOff.z = 0;
-  netSh = sh; shuttle.mode = sh.mode;
-  showNetShuttle(now);
+  const now = performance.now(), B = NET.buf, h = m.sh, hx = m.hx || [-1, 0, 0, 0, 0];
+  let t = clockIn(NET.clk, m.tm, now);
+  if (B.length && t < B[B.length - 1].t) t = B[B.length - 1].t;
+  B.push({ t, still: !!m.pa, hs: !!m.hs, s: m.s, a: m.a, lt: hx[0], is: !!hx[1], rc: hx[2] | 0, nf: !!hx[3], hn: hx[4] | 0,
+    sh: { p: { x: h[0], y: h[1], z: h[2] }, v: { x: h[3], y: h[4], z: h[5] }, mode: MODES[h[6]] || 'rest' } });
+  while (B.length > 2 && B[1].t < now - 1500) B.shift();
+  // The host has taken our own hit: the snapshots from this one on carry it
+  if (NET.hit && NET.hit.ok && NET.hit.until === null) NET.hit.until = t;
   Object.assign(RD, { vis: !!m.rg[0], x: m.rg[1], z: m.rg[2], out: !!m.rg[3], to: m.rg[4] }); refreshRing();
   if (m.pa !== S.paused) applyPaused(m.pa);
   if (S.state !== 'over') $('result').hidden = true;
   const k = [m.sc, m.g, m.sv, m.gn, m.ra, m.s, m.pa, m.n].join('|');
   if (k !== hudKey) { hudKey = k; updateHUD(); updateServeHint(); }
 }
-/* Guest smoothing. Snapshots never arrive evenly: some frames get two, some none, and over the Internet
-   they come in bursts. So the guest does not draw a snapshot as it is: it works out where each thing is
-   by now (carried on along its velocity, the shuttle by its physics) and closes any jump to the new
-   report over a few frames. The host stamps each snapshot with its clock, so a late one is known to be old. */
-let clockOff = null, netSh = null;
-const shOff = { x: 0, y: 0, z: 0 };
-function resetNet() { clockOff = null; netSh = null; shOff.x = shOff.y = shOff.z = 0; jumpHeard = 0; for (const a of ATH) { a.net = null; a.predT = 0; } }
-// When the snapshot was taken, on this machine's clock: the quickest delivery seen counts as no delay
-function snapTime(m, now) {
-  if (!Number.isFinite(m.tm)) return now;
-  const s = now - m.tm;
-  if (clockOff === null || s < clockOff) clockOff = s; else clockOff += (s - clockOff) * 0.002;
-  return Math.min(now, m.tm + clockOff);
+/* Network smoothing. Snapshots never arrive evenly: some frames get two, some none, and over the Internet they
+   come in bursts (TCP holds everything back while it resends one lost packet). So nothing is drawn the moment it
+   arrives. A guest keeps the last second of snapshots and draws what the host moves a little in the past
+   (clk.D, about the worst lateness of the last few seconds), between two snapshots it already has: players
+   along a curve through both reports, the shuttle flown on by the same physics as the host. Only our own player
+   is drawn in the present, moved right here. The host draws each guest's player the same way from its reports.
+   Our own hits are judged on this screen, on what it shows (guestHit); the host takes them back in time to the
+   moment we saw (takeGuestHit), so a hit that looked right here counts, however far away the host is. */
+function netClock() { return { off: null, late: [], D: 60 }; }
+// When a report was made, on this machine's clock: the quickest delivery seen counts as no delay
+function clockIn(c, tm, now) {
+  if (!Number.isFinite(tm)) return now;
+  const s = now - tm;
+  if (c.off === null || s < c.off) c.off = s; else c.off += (s - c.off) * 0.002;
+  const t = Math.min(now, tm + c.off);
+  c.late.push(now - t); if (c.late.length > 180) c.late.shift();
+  return t;
 }
-const netAge = (n, now, max) => n.still ? 0 : clamp((now - n.t) / 1000, 0, max);
-// Where a reported player is by now: along its velocity for at most 0.15 s, inside its half of the court
-function netPos(a, n, now) {
-  const age = netAge(n, now, 0.15), x = n.x + n.vx * age, z = n.z + n.vz * age;
-  return { x: clamp(x, -3.4, 3.4), z: a.side > 0 ? clamp(z, 0.35, 8.2) : clamp(z, -8.2, -0.35) };
+// How far behind to draw: 90% of reports arrive within it, plus one report interval. It changes slowly, so the
+// drawn time only ever runs a few percent faster or slower than real time and never jumps.
+function clockTick(c, dt) {
+  if (c.late.length < 20) return;
+  const s = c.late.slice().sort((x, y) => x - y), want = clamp(s[Math.floor(s.length * 0.9)] + 20, 30, 200);
+  c.D += clamp(want - c.D, -dt * 40, dt * 80);
 }
-function netY(n, now) {
-  if (n.y <= 0 && n.vy <= 0) return 0;
-  const age = netAge(n, now, 0.4);
-  return Math.max(0, n.y + n.vy * age - 0.5 * G * age * age);
+const NET = { clk: netClock(), buf: [], hit: null, hid: 0, shownA: null, shRaw: null, shKey: null, shOff: { x: 0, y: 0, z: 0 } };
+function resetNet() {
+  Object.assign(NET, { clk: netClock(), buf: [], hit: null, shownA: null, shRaw: null, shKey: null, lerpTo: null, prevRt: null });
+  NET.shOff.x = NET.shOff.y = NET.shOff.z = 0; jumpHeard = 0;
+  hostHist.length = 0; pendLand = null; shVis.x = shVis.y = shVis.z = 0;
+  for (const a of ATH) { a.nRaw = null; a.predT = 0; }
+  for (const r of remoteIn) Object.assign(r, { clk: netClock(), buf: [], vt: 0, pos: false });
 }
-// Where the reported shuttle is by now, flown on with the same physics as the host
-function shAt(n, now) {
-  const p = { ...n.p }, v = { ...n.v };
-  if (n.mode === 'fly') {
-    for (let t = netAge(n, now, 0.3); t > 1e-6; t -= DT) stepShuttle(p, v, Math.min(DT, t));
-    if (p.y < 0.03) p.y = 0.03;
+// The report at or before time rt, and the one after it (null when rt is past the newest)
+function netPair(buf, rt) {
+  let i = buf.length - 1;
+  while (i > 0 && buf[i].t > rt) i--;
+  return [buf[i], buf[i + 1] || null];
+}
+// Cubic Hermite between p0 (velocity v0) at u = 0 and p1 (v1) at u = 1, T seconds apart
+function herm(p0, v0, p1, v1, u, T) { const u2 = u * u, u3 = u2 * u; return (2 * u3 - 3 * u2 + 1) * p0 + (u3 - 2 * u2 + u) * T * v0 + (3 * u2 - 2 * u3) * p1 + (u3 - u2) * T * v1; }
+// A player at time rt from reports a/b ([x, z, vx, vz] at times ta/tb): between the two, or carried on along
+// its velocity for at most `max` seconds past the newest
+function between(ta, a, tb, b, rt, max) {
+  if (b && tb > ta) {
+    const T = (tb - ta) / 1000, u = clamp((rt - ta) / (tb - ta), 0, 1);
+    return [herm(a[0], a[2], b[0], b[2], u, T), herm(a[1], a[3], b[1], b[3], u, T), lerp(a[2], b[2], u), lerp(a[3], b[3], u)];
   }
+  const s = clamp((rt - ta) / 1000, 0, max);
+  return [a[0] + a[2] * s, a[1] + a[3] * s, a[2], a[3]];
+}
+const inHalf = (a, x, z) => ({ x: clamp(x, -3.4, 3.4), z: a.side > 0 ? clamp(z, 0.35, 8.2) : clamp(z, -8.2, -0.35) });
+// Put a player drawn from the network at x, z without visible jumps: a sudden gap (a late report, the end of a
+// guess) is closed over a few frames; a big one (placed for a new point) is jumped straight away. dtR: how far
+// the drawn time moved this frame (it runs a little faster or slower than dt while the delay adjusts).
+// Real running moves a player at most ~1 cm off its straight line in a frame, so anything over 4 cm is a gap.
+function netPlace(a, x, z, vx, vz, dt, dtR) {
+  const o = a.nOff || (a.nOff = { x: 0, z: 0 });
+  if (a.nRaw) {
+    const ex = a.nRaw.x + a.nRaw.vx * dtR, ez = a.nRaw.z + a.nRaw.vz * dtR, j = Math.hypot(x - ex, z - ez);
+    if (j > 1.5) o.x = o.z = 0; else if (j > 0.04) { o.x += ex - x; o.z += ez - z; }
+  } else { o.x = a.x - x; o.z = a.z - z; if (Math.hypot(o.x, o.z) > 1.5) o.x = o.z = 0; }
+  a.nRaw = { x, z, vx, vz };
+  const f = Math.exp(-dt * 10); o.x *= f; o.z *= f;
+  a.x = x + o.x; a.z = z + o.z; a.vx = vx; a.vz = vz;
+}
+function flyFor(p0, v0, s) {
+  const p = { ...p0 }, v = { ...v0 };
+  for (let t = s; t > 1e-6; t -= DT) stepShuttle(p, v, Math.min(DT, t));
   return { p, v };
 }
-function showNetShuttle(now) {
-  if (!netSh) return;
-  const q = shAt(netSh, now);
-  shuttle.p = { x: q.p.x + shOff.x, y: Math.max(0.03, q.p.y + shOff.y), z: q.p.z + shOff.z }; shuttle.v = q.v;
+const STILL = { x: 0, y: 0, z: 0 };
+// The shuttle at time rt from snapshots A and B. key: the hit count it is flying on (a new key is a new hit)
+function netShuttleAt(A, B, rt) {
+  const sh = A.sh;
+  if (B && (B.hn !== A.hn || (sh.mode === 'held' && B.sh.mode === 'held'))) {
+    // Hit between the two snapshots, or held in the server's hand: straight from one to the other
+    const u = clamp((rt - A.t) / Math.max(1, B.t - A.t), 0, 1), q = B.sh.p;
+    return { p: { x: lerp(sh.p.x, q.x, u), y: lerp(sh.p.y, q.y, u), z: lerp(sh.p.z, q.z, u) }, v: { ...B.sh.v }, mode: B.sh.mode, key: A.hn, to: B.hn };
+  }
+  if (sh.mode !== 'fly' || A.still) return { p: { ...sh.p }, v: sh.mode === 'fly' ? { ...sh.v } : STILL, mode: sh.mode, key: A.hn };
+  // (during the host's hit-stop the shuttle flies at a quarter speed, as it does there)
+  const f = flyFor(sh.p, sh.v, clamp((rt - A.t) / 1000, 0, 0.3) * (A.hs ? 0.25 : 1));
+  if (f.p.y < 0.03) f.p.y = 0.03;
+  return { p: f.p, v: f.v, mode: 'fly', key: A.hn };
+}
+// Our own hit, flown on here from where we hit it
+function hitFlight(H, rt) {
+  const f = flyFor(H.p, H.v, clamp((rt - H.t) / 1000, 0, 3));
+  return f.p.y < 0.03 ? { p: { ...f.p, y: 0.03 }, v: STILL, mode: 'rest', key: 'me' } : { p: f.p, v: f.v, mode: 'fly', key: 'me' };
+}
+function showShuttle(q, dt, dtR) {
+  const o = NET.shOff, r = NET.shRaw;
+  if (r && q.mode !== 'held' && r.mode !== 'held') {
+    // Where last frame's shuttle would be now by its own flight; any gap to that is closed over a few frames.
+    // Except a hit by someone else that was drawn on time (between the snapshots before and after it,
+    // netShuttleAt): that turn is real and shown as it is. A hit that arrived late slides over instead.
+    const newHit = typeof q.key === 'number' && q.key !== NET.shKey && q.key === NET.lerpTo;
+    const e = r.mode === 'fly' ? flyFor(r.p, r.v, dtR).p : r.p, j = Math.hypot(q.p.x - e.x, q.p.y - e.y, q.p.z - e.z);
+    if (j > 2.5) o.x = o.y = o.z = 0;
+    else if (j > 0.02 && !newHit) { o.x += e.x - q.p.x; o.y += e.y - q.p.y; o.z += e.z - q.p.z; }
+  } else o.x = o.y = o.z = 0;
+  NET.shRaw = q; NET.shKey = q.key; NET.lerpTo = q.to ?? null;
+  const f = Math.exp(-dt * 12); o.x *= f; o.y *= f; o.z *= f;
+  shuttle.p = { x: q.p.x + o.x, y: Math.max(0.03, q.p.y + o.y), z: q.p.z + o.z }; shuttle.v = q.v; shuttle.mode = q.mode;
+}
+// Swing, stamina and falls from the snapshot being drawn
+function athFromSnap(b, i, d) {
+  b.fallT = d[11] || 0; b.fdx = d[12] || 0; b.fdz = d[13] || 0; b.sta = d[9];
+  if (i !== me) b.run = !!d[10];
+  if (b.fallT > 0) b.predT = 0;
+  if (i === me && b.predT > 0) {
+    // Our own swing started here when the button was pressed: follow the host's only once its swing goes
+    // past the wind-up
+    if (b.swingT >= 0 && b.swingT <= SW_W + 0.005 && d[4] > SW_W + 0.005 && d[4] < SW_F) { b.swingT = d[4]; b.swingK = SWK[d[7]] || b.swingK; }
+  } else {
+    b.swingK = SWK[d[7]] || 'over';
+    if (i !== me) b.armed = d[8] ? 'strong' : null; // ours is armed here, by our own button
+    if (d[4] >= 0 && (b.swingT < 0 || Math.abs(b.swingT - d[4]) > 0.1)) b.swingT = d[4];
+  }
+}
+// Same rules as tryHits, on what this screen shows: the shuttle at time rt, our own player now
+function ownHitReady(A, q, a) {
+  if (S.state !== 'rally' || S.paused || A.s !== 'rally' || !a.armed || a.fallT > 0 || q.mode !== 'fly') return false;
+  if (A.lt === team(me) || (A.is && A.rc !== me) || A.nf) return false;
+  const p = q.p;
+  if (Math.sign(p.z) !== a.side || Math.abs(p.z) < 0.05 || p.y < 0.12 || p.y > 2.75 + a.y) return false;
+  const hc = hitCenter(a);
+  return Math.hypot(p.x - hc.x, p.z - hc.z) <= 1.1;
+}
+function guestHit(q, rt) {
+  const a = ath(me), kind = a.armed; a.armed = null;
+  shuttle.p = { ...q.p }; shuttle.v = { ...q.v }; // humanShot and aimShot read the shuttle
+  const type = humanShot(kind, me), s = aimShot(me, type);
+  const p = { x: r3(s.from.x), y: r3(s.from.y), z: r3(s.from.z) }, v = { x: r3(s.vel.x), y: r3(s.vel.y), z: r3(s.vel.z) }, id = ++NET.hid;
+  // `at`: the moment this screen shows, on the host's clock
+  send({ t: 'hit', id, at: Math.round(rt - NET.clk.off), k: type, p: [p.x, p.y, p.z], v: [v.x, v.y, v.z], ax: r3(a.x), az: r3(a.z) });
+  NET.hit = { id, t: rt, p, v, sent: performance.now(), ok: null, until: null };
+  // Swing, sound and sparks right away; the host's copies of them are skipped (they carry our seat as g)
+  const h = p.y - a.y;
+  a.swingK = h > 1.75 ? 'over' : h < 1.05 ? 'under' : 'side';
+  if (!(a.swingT >= SW_W && a.swingT < SW_C)) a.swingT = SW_W + 0.01;
+  sfx(type === 'smash' || type === 'jsmash' ? 'smash' : 'hit');
+  fxEvent({ kind: 'hit', type, x: p.x, y: p.y, z: p.z, vx: v.x, vy: v.y, vz: v.z });
+  showShot(me, type);
 }
 function guestTick(dt) {
   readInput(dt);
-  const now = performance.now(), fade = Math.exp(-dt * 12);
+  const now = performance.now(), a = ath(me), playing = (S.state === 'rally' || S.state === 'point') && !S.paused;
   // Move our own player right here, same rules as the host, so it reacts without waiting on the network
-  const a = ath(me), playing = (S.state === 'rally' || S.state === 'point') && !S.paused;
   if (playing && !(a.fallT > 0)) {
     if (a.sta <= 0) a.tired = true; else if (a.sta > 0.3) a.tired = false;
     const w = worldInput(me);
@@ -2549,26 +2958,86 @@ function guestTick(dt) {
     if (a.armed && !a.holding) { a.armT -= dt; if (a.armT <= 0) a.armed = null; }
     if (a.predT > 0 && (a.holding || a.armed)) a.predT = 0.5; else if (a.predT > 0) a.predT -= dt;
   }
-  // Everyone the host moves (and our own player between points): shown where they are by now
-  for (let i = 0; i < S.n; i++) {
-    const b = ath(i), n = b.net;
-    if (!n) { if (!S.paused) stepBody(b, dt); continue; } // our own player during a rally: jumps here
-    const p = netPos(b, n, now), o = b.off;
-    o.x *= fade; o.z *= fade;
-    b.x = p.x + o.x; b.z = p.z + o.z; b.vx = n.vx; b.vz = n.vz;
-    const y = netY(n, now);
-    if (b.y > 0 && y <= 0) b.landT = LAND_T; else if (b.landT > 0) b.landT -= dt;
-    b.y = y; b.vy = n.vy;
+  let vt = 0;
+  if (NET.buf.length) {
+    clockTick(NET.clk, dt);
+    // (the frame's own time, not the moment this code happens to run, so each frame moves by an even step)
+    const rt = last - NET.clk.D, [A, B] = netPair(NET.buf, rt), fresh = A !== NET.shownA;
+    const dtR = NET.prevRt == null ? dt : clamp((rt - NET.prevRt) / 1000, 0, 0.1);
+    NET.shownA = A; NET.prevRt = rt; vt = Math.round(rt - NET.clk.off);
+    // Everyone the host moves (and our own player between points or while down), as they were at time rt
+    for (let i = 0; i < S.n; i++) {
+      const b = ath(i), d = A.a[i];
+      if (!d) continue;
+      if (fresh) athFromSnap(b, i, d);
+      if (i === me && (S.state === 'rally' || S.state === 'point') && !(b.fallT > 0)) { b.nRaw = null; if (!S.paused) stepBody(b, dt); continue; }
+      const q = A.still ? between(A.t, d, 0, null, rt, 0) : between(A.t, d, B ? B.t : 0, B && B.a[i], rt, 0.15), c = inHalf(b, q[0], q[1]);
+      netPlace(b, c.x, c.z, q[2], q[3], dt, dtR);
+      // Height: a jump is a parabola from the earlier report
+      const s = A.still ? 0 : clamp((rt - A.t) / 1000, 0, 0.6), y = d[5] > 0 || d[6] > 0 ? Math.max(0, d[5] + d[6] * s - 0.5 * G * s * s) : 0;
+      if (b.y > 0 && y <= 0) b.landT = LAND_T; else if (b.landT > 0) b.landT -= dt;
+      b.y = y; b.vy = y > 0 ? d[6] - G * s : 0;
+    }
+    // The shuttle at time rt. After our own hit it flies on here from where we hit it, until the host's
+    // snapshots carry that hit (or the host turns it down)
+    const H = NET.hit;
+    if (H && (H.ok === false || now - H.sent > (H.ok ? 3000 : 1500) || (H.until !== null && rt >= H.until))) NET.hit = null;
+    let q = NET.hit ? hitFlight(NET.hit, rt) : netShuttleAt(A, B, rt);
+    if (!NET.hit && ownHitReady(A, q, a)) { guestHit(q, rt); q = hitFlight(NET.hit, rt); }
+    showShuttle(q, dt, dtR);
   }
-  // Report stick and position to the host whenever they change, at most about 70 times a second
-  const msg = { t: 'in', x: +input.x.toFixed(2), z: +input.z.toFixed(2), r: input.run ? 1 : 0 };
+  for (const b of ATH) if (b.fallT > 0) b.fallT = Math.max(0, b.fallT - dt);
+  // Report stick and position to the host: every frame during a rally (the host draws us from these, and waits
+  // for vt, how far this screen has got, before giving a point on our side), otherwise only when they change
+  const msg = { t: 'in', x: +input.x.toFixed(2), z: +input.z.toFixed(2), r: input.run ? 1 : 0, tm: Math.round(now), vt };
   if (playing) Object.assign(msg, { px: r3(a.x), pz: r3(a.z), vx: r3(a.vx), vz: r3(a.vz) });
   const k = [msg.x, msg.z, msg.r, msg.px, msg.pz].join(',');
-  if (k !== lastIn && now - lastInAt >= 14) { lastIn = k; lastInAt = now; send(msg); }
-  for (const b of ATH) if (b.fallT > 0) b.fallT = Math.max(0, b.fallT - dt);
-  // The shuttle: flown on from the last report, with any jump to a new report closed over a few frames
-  shOff.x *= fade; shOff.y *= fade; shOff.z *= fade;
-  showNetShuttle(now);
+  if ((playing || k !== lastIn) && now - lastInAt >= 14 && !(ws && ws.bufferedAmount > 4096)) { lastIn = k; lastInAt = now; send(msg); }
+}
+/* Host: a guest's own hit (guestHit). The guest saw the match at `at` (host clock). Check the shuttle really was
+   there then and nobody has hit it since, put it back to that moment with the guest's shot, and play the match
+   forward to now. The host's own screen slides the shuttle over instead of jumping. */
+function recordHist(w, st) {
+  if (S.mode !== 'host') return;
+  hostHist.push({ w, st, p: { x: shuttle.p.x, y: shuttle.p.y, z: shuttle.p.z }, mode: shuttle.mode, hn: S.hits });
+  while (hostHist.length > 2 && hostHist[0].w < w - 900) hostHist.shift();
+}
+function takeGuestHit(i, m) {
+  if (S.paused || S.state !== 'rally' || S.netFault || !(m.k in SHOTS) || m.k === 'long' || m.k === 'short') return false;
+  const a = ath(i), t = team(i);
+  if (S.lastTeam === t || (S.isServe && i !== S.receiver) || a.fallT > 0) return false;
+  const vec = q => Array.isArray(q) && q.length === 3 && q.every(Number.isFinite) ? { x: q[0], y: q[1], z: q[2] } : null;
+  const p = vec(m.p), v = vec(m.v);
+  if (!p || !v || Math.sign(p.z) !== a.side || p.y < 0.1 || p.y > 3.8 || v.z * a.side >= 0 || Math.hypot(v.x, v.y, v.z) > 80) return false;
+  const now = performance.now(), at = +m.at, H = hostHist;
+  if (!Number.isFinite(at) || at < now - 700 || !H.length || H[0].w > at) return false;
+  let j = H.length - 1;
+  while (j > 0 && H[j].w > at) j--;
+  const e0 = H[j], e1 = H[j + 1] || e0;
+  if (e0.hn !== S.hits || e0.mode !== 'fly') return false; // someone hit it since, or it wasn't flying then
+  const u = e1 === e0 || e1.mode !== 'fly' ? 0 : clamp((at - e0.w) / Math.max(1, e1.w - e0.w), 0, 1);
+  if (Math.hypot(p.x - lerp(e0.p.x, e1.p.x, u), p.y - lerp(e0.p.y, e1.p.y, u), p.z - lerp(e0.p.z, e1.p.z, u)) > 0.9) return false;
+  const hc = hitCenter({ x: +m.ax || 0, z: +m.az || 0, side: a.side, hand: a.hand });
+  if (Math.hypot(p.x - hc.x, p.z - hc.z) > 1.5) return false;
+  // Back to the moment of the hit...
+  const shown = { x: shuttle.p.x + shVis.x, y: shuttle.p.y + shVis.y, z: shuttle.p.z + shVis.z };
+  const st = lerp(e0.st, e1.st, u), back = clamp(S.simT - st, 0, 0.7);
+  H.length = j + 1; pendLand = null; a.armed = null;
+  finishHit(i, m.k, p, v, i);
+  // ...and forward to now; the computer players start as late as the hit reached us
+  for (const k of members(1 - t)) { const b = ath(k); if (!isHuman(k) && b.delay > 0) b.delay = Math.max(0, b.delay - back); }
+  for (let s = 0; s + DT <= back && shuttle.mode === 'fly'; s += DT) { simWall = at + (s + DT) * 1000; physicsStep(DT); tryHits(); recordHist(simWall, st + s + DT); }
+  S.flightT = back; simWall = now;
+  const dx = shown.x - shuttle.p.x, dy = shown.y - shuttle.p.y, dz = shown.z - shuttle.p.z;
+  if (Math.hypot(dx, dy, dz) < 4) Object.assign(shVis, { x: dx, y: dy, z: dz }); else shVis.x = shVis.y = shVis.z = 0;
+  return true;
+}
+// F3 meter: how far behind the network pictures are drawn
+function netInfo() {
+  if (S.mode === 'guest' && NET.buf.length) return ` · mạng: vẽ trễ ${Math.round(NET.clk.D)} ms`;
+  if (S.mode !== 'host') return '';
+  const g = remoteIn.filter((r, i) => i !== me && i < S.n && isHuman(i) && r.buf.length).map(r => Math.round(r.clk.D));
+  return g.length ? ` · mạng: khách vẽ trễ ${g.join('/')} ms` : '';
 }
 $('btnPause').addEventListener('click', () => setPaused(!S.paused));
 $('btnSound').addEventListener('click', e => { muted = !muted; e.currentTarget.setAttribute('aria-pressed', String(!muted)); if (!muted) ensureAudio(); });
@@ -2650,7 +3119,7 @@ function updateGhosts(dt) {
       a.x += (d[0] - a.x) * k; a.z += (d[1] - a.z) * k; a.y = d[2]; a.vx = d[3]; a.vz = d[4]; a.vy = d[7] || 0;
       if (d[5] >= 0 && (a.swingT < 0 || Math.abs(a.swingT - d[5]) > 0.15)) a.swingT = d[5];
       a.swingK = SWK[d[6]] || 'over';
-      animateAthlete(a, dt, i, G.ctx);
+      animateAthlete(a, dt, i, G.ctx); driveModel(a);
       setTag(a, G.hu[i] ? G.names[i] || 'Người chơi' : '');
     });
     G.sh.position.set(sh.p.x, sh.p.y, sh.p.z);
@@ -2730,15 +3199,14 @@ function update(dt) {
       const w = worldInput(i), r = i === me ? null : remoteIn[i];
       a.run = playing && w.run && !a.tired && Math.hypot(w.x, w.z) > 0.2;
       // Outside a rally the host places everyone (serve positions); the guest's next position report starts fresh
-      if (r && !playing) r.pos = false;
-      if (r && r.pos) {
-        // A guest moves its own player on its machine and reports the position. Between reports, carry on
-        // along its velocity (at most 0.1 s) and keep it inside that player's half of the court.
-        const age = Math.min(0.1, (performance.now() - r.at) / 1000);
-        a.vx = r.vx; a.vz = r.vz;
-        a.x = clamp(r.px + r.vx * age, -3.4, 3.4);
-        a.z = a.side > 0 ? clamp(r.pz + r.vz * age, 0.35, 8.2) : clamp(r.pz + r.vz * age, -8.2, -0.35);
-      } else moveAthlete(a, playing ? w.x : 0, playing ? w.z : 0, a.run ? RUN_SP : WALK_SP, dt, false);
+      if (r && !playing) { r.pos = false; r.buf.length = 0; r.prevRt = null; }
+      if (r && r.pos && r.buf.length) {
+        // A guest moves its own player on its machine and reports it every frame. It is drawn a little in the
+        // past, between two reports already here, so late or bunched reports don't make it jump (see netClock)
+        clockTick(r.clk, dt);
+        const rt = last - r.clk.D, [A, B] = netPair(r.buf, rt), q = between(A.t, A.d, B ? B.t : 0, B && B.d, rt, 0.1), c = inHalf(a, q[0], q[1]);
+        netPlace(a, c.x, c.z, q[2], q[3], dt, r.prevRt == null ? dt : clamp((rt - r.prevRt) / 1000, 0, 0.1)); r.prevRt = rt;
+      } else { a.nRaw = null; moveAthlete(a, playing ? w.x : 0, playing ? w.z : 0, a.run ? RUN_SP : WALK_SP, dt, false); }
       continue;
     }
     a.run = false;
@@ -2768,18 +3236,22 @@ function update(dt) {
     holdShuttle();
     if (!isHuman(S.server)) { S.timer -= dt; if (S.timer <= 0) launchServe(Math.random() < (S.n === 4 ? 0.25 : 0.6) ? 'long' : 'short'); }
   }
-  acc += dt;
+  acc += dt; simWall = performance.now();
   while (acc >= DT) { acc -= DT; physicsStep(DT); tryHits(); }
+  S.simT += dt; recordHist(simWall, S.simT);
+  checkLanding();
   if (S.state === 'point') { S.timer -= dt; if (S.timer <= 0) afterPoint(); }
 }
 function syncVisuals(dt) {
-  for (let i = 0; i < S.n; i++) animateAthlete(ath(i), dt, i);
-  const p = shuttle.p;
+  for (let i = 0; i < S.n; i++) { animateAthlete(ath(i), dt, i); driveModel(ath(i)); }
+  // Host: a guest's hit taken back in time moves the shuttle at once; the drawn one slides over instead
+  const fv = Math.exp(-dt * 10); shVis.x *= fv; shVis.y *= fv; shVis.z *= fv;
+  const p = S.mode === 'host' ? { x: shuttle.p.x + shVis.x, y: Math.max(0.03, shuttle.p.y + shVis.y), z: shuttle.p.z + shVis.z } : shuttle.p;
   shMesh.position.set(p.x, p.y, p.z);
   if (shuttle.mode === 'fly') {
     const sp = Math.hypot(shuttle.v.x, shuttle.v.y, shuttle.v.z);
     if (sp > 0.3) { tmpV.set(-shuttle.v.x / sp, -shuttle.v.y / sp, -shuttle.v.z / sp); shMesh.quaternion.setFromUnitVectors(UP, tmpV); }
-    if (stopT <= 0) pushTrail(); // frozen: keep the streak as it was instead of shrinking it onto the shuttle
+    if (stopT <= 0) pushTrail(p); // frozen: keep the streak as it was instead of shrinking it onto the shuttle
   } else if (shuttle.mode === 'held') { shMesh.quaternion.set(0, 0, 0, 1); resetTrail(); }
   else shMesh.quaternion.setFromUnitVectors(UP, LYING);
   trail.visible = shuttle.mode === 'fly';
@@ -2823,7 +3295,8 @@ function frame(now) {
   if (stopT > 0) stopT -= dt;
   if (S.mode === 'guest') guestTick(dt);
   else if (active && !S.paused) update(simDt);
-  if (S.mode === 'host' && now - lastSent > 14) { lastSent = now; send(snapshot()); }
+  // A backed-up connection gets no more snapshots until it drains: one fresh snapshot beats a queue of stale ones
+  if (S.mode === 'host' && now - lastSent > 14 && !(ws && ws.bufferedAmount > 16384)) { lastSent = now; send(snapshot()); }
   if (S.mode === 'host' && S.state !== 'menu' && now - lastSum > 100) { lastSum = now; send(summary()); }
   const credit = (overlayOpen() || !$('pause').hidden) && !$('custom').classList.contains('open');
   if (credit === $('credit').hidden) $('credit').hidden = !credit;
@@ -2856,6 +3329,7 @@ function warmShaders() {
 }
 function start(data) {
   warmShaders();
+  loadCharacters();
   if (data && data.started && Array.isArray(data.score)) {
     setFormat(data.fmt || 'don'); setCourt(data.court || 0);
     Object.assign(S, { diff: data.diff || 'vua', score: data.score, games: data.games, server: data.server, right: data.right || [0, 1], gameNo: data.gameNo, history: data.history || [], best: data.best || 0, showMarker: data.showMarker !== false });

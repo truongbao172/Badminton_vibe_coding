@@ -33,6 +33,13 @@ Mở tab **Chơi với người** trong menu. Tab này liệt kê 5 sân: sân n
 
 Đổi cổng: `PORT=8080 node server.js`.
 
+## Nhân vật
+
+Nhân vật dùng model người thật trong bộ **Universal Base Characters** của [Quaternius](https://quaternius.com) (giấy phép CC0, xem `assets/characters/LICENSE.txt`). Bảng **Nhân vật** cho chọn dáng nam hoặc nữ. Áo, quần, tất được tô lên người theo màu bạn chọn, giày được dựng riêng.
+
+- Game vẫn tính tư thế bằng bộ khung đơn giản như trước (vung vợt, chạy, nhảy), rồi chép tư thế đó sang khung xương của model mỗi khung hình.
+- Model nằm trong `assets/characters/` (khoảng 3 MB) và do `server.js` phục vụ. Trang không có server, ví dụ bản Artifact trên claude.ai, không tải được model nên dùng nhân vật đơn giản như cũ.
+
 ## Đồ hoạ
 
 Nút **Đồ hoạ** ở đầu menu (và trong màn tạm dừng) đổi lần lượt giữa các mức sau. Lựa chọn được nhớ trên máy.
@@ -55,8 +62,10 @@ Lần đầu chạy, server tải Three.js về thư mục `vendor/`. Từ lần
 ## Cách hoạt động
 
 - **Máy chủ sân chạy trận đấu:** toàn bộ luật (cả luật giao cầu và đổi ô khi đánh đôi), vật lý của quả cầu, người chơi máy và tính điểm đều chạy trên máy này.
-- **Các máy khác chỉ điều khiển và hiển thị:** gửi thao tác phím lên, nhận lại trạng thái trận khoảng 60 lần mỗi giây, camera đặt ở phía sân của mình.
-- **Vai trò của `server.js`:** giữ danh sách người ở 5 sân và chuyển tin giữa chủ sân với những người còn lại.
+- **Các máy khác chỉ điều khiển và hiển thị:** gửi thao tác phím lên, nhận lại trạng thái trận khoảng 60 lần mỗi giây, camera đặt ở phía sân của mình. Nhân vật của chính mình chạy ngay trên máy mình, không chờ mạng.
+- **Hình mượt dù mạng chập chờn:** qua Internet, tin đến không đều, có lúc dồn cả cụm. Mỗi máy giữ lại các bản trạng thái vừa nhận và vẽ người chơi khác cùng quả cầu lùi lại một chút (thường 40 đến 100 ms, tự chỉnh theo mạng), nội suy giữa hai bản đã có thay vì đoán trước. Chủ sân cũng vẽ người chơi khách theo cách này. Bấm **F3** để xem độ trễ vẽ hiện tại.
+- **Đánh trúng là trúng:** máy khách tự xét cú đánh của mình theo đúng những gì màn hình mình đang thấy, rồi gửi lên kèm thời điểm. Máy chủ sân kiểm tra lại, đưa quả cầu về đúng thời điểm đó, áp cú đánh rồi cho trận chạy tiếp tới hiện tại. Cầu rơi bên phía có người chơi khách thì máy chủ sân chờ màn hình người đó cũng thấy cầu chạm đất (tối đa 0,6 giây) rồi mới tính điểm.
+- **Vai trò của `server.js`:** giữ danh sách người ở 5 sân và chuyển tin giữa chủ sân với những người còn lại. Người nào kết nối đang nghẽn thì bỏ qua bản trạng thái cũ, chỉ gửi bản mới nhất.
 - **Rớt mạng giữa trận:** server gửi nhịp tim 2 giây một lần. Máy khách 6 giây không nghe thấy gì (Wi‑Fi chập chờn, trình duyệt tạm dừng tab, máy ngủ) thì tự kết nối lại, tối đa 8 lần, và về đúng ghế cũ. Trong lúc đó máy đánh thay ghế ấy. Chủ sân rớt mạng thì sân vẫn đóng như trước.
 
 `san-cau-so-7.html` vừa là trang game, vừa là nội dung của bản Artifact trên claude.ai. Bản Artifact chỉ chơi được với máy, vì trang Artifact không được mở kết nối mạng.
