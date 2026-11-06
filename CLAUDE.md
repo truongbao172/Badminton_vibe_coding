@@ -2,6 +2,10 @@
 
 Game cầu lông 3D (Three.js r128, không bundler, không npm dependency). `server.js` (Node ≥18) phục vụ trang và chuyển tin WebSocket cho chế độ LAN / Render.
 
+Hai máy chủ, mỗi cái một file cấu hình, dùng chung logic sân/ghế/chuyển tin trong `lobby.js` (không dùng API Node):
+- `server.js` + `render.yaml`: LAN và Render.
+- `cloudflare/worker.js` + `wrangler.jsonc`: Cloudflare Workers (Durable Object `Hall`); file tĩnh lấy từ `dist/web/` do `node build.js web` tạo.
+
 ## Đọc file nào
 
 Đừng đọc hết mọi file. Dùng bản đồ dưới đây (hoặc `grep -n "function tên"` trong `src/game/`) để mở đúng file cần sửa.

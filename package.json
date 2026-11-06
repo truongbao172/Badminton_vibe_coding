@@ -5,7 +5,9 @@
   "description": "Game cầu lông 3D, đánh với máy hoặc với bạn qua mạng LAN",
   "scripts": {
     "start": "node server.js",
-    "build": "node build.js"
+    "build": "node build.js",
+    "cf:dev": "npx wrangler@4 dev",
+    "cf:deploy": "npx wrangler@4 deploy"
   },
   "engines": {
     "node": ">=18"
