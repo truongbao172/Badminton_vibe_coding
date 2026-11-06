@@ -31,7 +31,7 @@ function snapState(m) {
 function queueEv(m) {
   const c = NET.clk;
   if (!NET.buf.length || c.off === null || !Number.isFinite(m.tm)) { handleEv(m); return; }
-  NET.evq.push({ t: Math.min(performance.now(), m.tm + c.off), m });
+  NET.evq.push({ t: m.tm + c.off, m });
 }
 function playDueEvs(rt, st = NET) {
   const Q = st.evq;
@@ -52,13 +52,17 @@ function playDueEvs(rt, st = NET) {
    is drawn in the present, moved right here. The host draws each guest's player the same way from its reports.
    Our own hits are judged on this screen, on what it shows (guestHit); the host takes them back in time to the
    moment we saw (takeGuestHit), so a hit that looked right here counts, however far away the host is. */
-function netClock() { return { off: null, late: [], D: 60 }; }
-// When a report was made, on this machine's clock: the quickest delivery seen counts as no delay
+function netClock() { return { off: null, min: null, late: [], D: 60 }; }
+// When a report was made, on this machine's clock: the quickest delivery seen (min) counts as no delay.
+// The offset actually used (off) follows min smoothly: a new quickest delivery comes every second or so, and moving
+// every later report a few ms at once made the other players hitch (2-8 cm) each time.
 function clockIn(c, tm, now) {
   if (!Number.isFinite(tm)) return now;
   const s = now - tm;
-  if (c.off === null || s < c.off) c.off = s; else c.off += (s - c.off) * 0.002;
-  const t = Math.min(now, tm + c.off);
+  if (c.min === null) c.min = c.off = s;
+  else if (s < c.min) c.min = s; else c.min += (s - c.min) * 0.002;
+  c.off += (c.min - c.off) * 0.02;
+  const t = tm + c.off;
   c.late.push(now - t); if (c.late.length > 360) c.late.shift();
   return t;
 }
@@ -243,7 +247,7 @@ function guestTick(dt) {
   for (const b of ATH) if (b.fallT > 0) b.fallT = Math.max(0, b.fallT - dt);
   // Report stick and position to the host: every frame during a rally (the host draws us from these, and waits
   // for vt, how far this screen has got, before giving a point on our side), otherwise only when they change
-  const msg = { t: 'in', x: +input.x.toFixed(2), z: +input.z.toFixed(2), r: input.run ? 1 : 0, tm: Math.round(now), vt };
+  const msg = { t: 'in', x: +input.x.toFixed(2), z: +input.z.toFixed(2), r: input.run ? 1 : 0, tm: Math.round(last), vt };
   if (Number.isFinite(NET.he)) msg.he = Math.round(NET.he + now - NET.heAt);
   if (playing) Object.assign(msg, { px: r3(a.x), pz: r3(a.z), vx: r3(a.vx), vz: r3(a.vz) });
   const k = [msg.x, msg.z, msg.r, msg.px, msg.pz].join(',');

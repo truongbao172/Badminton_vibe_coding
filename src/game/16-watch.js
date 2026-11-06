@@ -20,7 +20,7 @@ function summary() {
   // tm: when (host clock), hn: hits so far, lh: the latest hit [when, x, y, z, vx, vy, vz], so a spectator can
   // draw the match a little in the past between two summaries, with every hit where it really happened
   const L = lastHit && lastHit.hn === S.hits ? lastHit : null;
-  const m = { t: 'sum', tm: Math.round(performance.now()), hn: S.hits,
+  const m = { t: 'sum', tm: Math.round(last), hn: S.hits,
     lh: L && [L.w, r2(L.p.x), r2(L.p.y), r2(L.p.z), r2(L.v.x), r2(L.v.y), r2(L.v.z)],
     s: S.state, n: S.n, sc: S.score, g: S.games, gn: S.gameNo, sv: S.server,
     a: ATH.slice(0, S.n).map(a => [r2(a.x), r2(a.z), r2(a.y), r2(a.vx), r2(a.vz), r3(a.swingT), SWK.indexOf(a.swingK), r2(a.vy), r2(a.fallT), r2(a.fdx), r2(a.fdz)]),
@@ -38,7 +38,7 @@ function onSum(m) {
   if (!live(c)) { B.length = 0; G.clk = netClock(); G.clk.D = 160; G.shownA = G.prevRt = null; }
   let t = clockIn(G.clk, m.tm, now);
   if (B.length && t < B[B.length - 1].t) t = B[B.length - 1].t;
-  const lh = Array.isArray(m.lh) && m.lh.every(Number.isFinite) ? { t: Math.min(now, m.lh[0] + G.clk.off), p: { x: m.lh[1], y: m.lh[2], z: m.lh[3] }, v: { x: m.lh[4], y: m.lh[5], z: m.lh[6] } } : null;
+  const lh = Array.isArray(m.lh) && m.lh.every(Number.isFinite) ? { t: m.lh[0] + G.clk.off, p: { x: m.lh[1], y: m.lh[2], z: m.lh[3] }, v: { x: m.lh[4], y: m.lh[5], z: m.lh[6] } } : null;
   B.push({ t, m, hn: m.hn | 0, lh });
   while (B.length > 2 && B[1].t < now - 2000) B.shift();
   G.seen = clock; G.n = m.n === 4 ? 4 : 2;
@@ -94,7 +94,11 @@ function watchConnect() {
   let sock;
   try { sock = new WebSocket(`${proto}://${location.host}/ws?watch=1`); } catch (e) { return; }
   watchWs = sock;
-  sock.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (_) { return; } if (m.t === 'sum') onSum(m); else if (m.t === 'sumEnd') onSumEnd(m.c); };
+  sock.onmessage = e => {
+    let m; try { m = JSON.parse(e.data); } catch (_) { return; }
+    if (m.t === 'sum') onSum(m); else if (m.t === 'sumEnd') onSumEnd(m.c);
+    else if (m.t === 'hb' && sock.readyState === 1) sock.send('{"t":"hb"}'); // (still here: see lobby.js heartbeat)
+  };
   sock.onclose = () => { if (watchWs === sock) { watchWs = null; setTimeout(watchConnect, 3000); } };
 }
 function updateGhosts(dt) {

@@ -67,7 +67,7 @@ function update(dt) {
     holdShuttle();
     if (!isHuman(S.server)) { S.timer -= dt; if (S.timer <= 0) launchServe(Math.random() < (S.n === 4 ? 0.25 : 0.6) ? 'long' : 'short'); }
   }
-  acc += dt; simWall = performance.now();
+  acc += dt; simWall = last;
   while (acc >= DT) { acc -= DT; physicsStep(DT); tryHits(); }
   S.simT += dt; recordHist(simWall, S.simT);
   checkLanding();

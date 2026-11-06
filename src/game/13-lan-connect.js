@@ -85,7 +85,8 @@ function lanJoin(again = false) {
     netHeard = performance.now();
     let m; try { m = JSON.parse(e.data); } catch (_) { return; }
     if (rejoin && m.t === 'role') { rejoin = null; toast('Đã kết nối lại', '', 1.4); }
-    if (m.t !== 'hb') onNet(m);
+    // The server's heartbeat: answer it, so the server can tell this page is still here (lobby.js)
+    if (m.t === 'hb') { if (sock.readyState === 1) sock.send('{"t":"hb"}'); } else onNet(m);
   };
   sock.onclose = () => {
     if (ws !== sock) return; // we closed it ourselves (left the court, or replaced it)
@@ -200,7 +201,7 @@ const MODES = ['held', 'fly', 'rest'];
 function snapshot() {
   const p = shuttle.p, v = shuttle.v, as = a => [r3(a.x), r3(a.z), r3(a.vx), r3(a.vz), r3(a.swingT),
     r3(a.y), r3(a.vy), SWK.indexOf(a.swingK), a.armed ? 1 : 0, r3(a.sta), a.run ? 1 : 0, r3(a.fallT), r3(a.fdx), r3(a.fdz)];
-  return { t: 'st', tm: Math.round(performance.now()), s: S.state, pa: S.paused, sc: S.score, g: S.games, sv: S.server, gn: S.gameNo, ra: S.rally,
+  return { t: 'st', tm: Math.round(last), s: S.state, pa: S.paused, sc: S.score, g: S.games, sv: S.server, gn: S.gameNo, ra: S.rally,
     n: S.n, hu: S.human.map(Number), a: ATH.slice(0, S.n).map(as),
     sh: [r3(p.x), r3(p.y), r3(p.z), r3(v.x), r3(v.y), r3(v.z), MODES.indexOf(shuttle.mode)],
     rg: [RD.vis ? 1 : 0, r3(RD.x), r3(RD.z), RD.out ? 1 : 0, RD.to],

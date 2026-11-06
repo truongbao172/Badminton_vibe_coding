@@ -34,7 +34,7 @@ const HB = '{"t":"hb"}';
 
 // Một kết nối: người chơi trong sân, hoặc kết nối "xem" (watch).
 class Peer {
-  constructor(conn) { this.conn = conn; this.open = true; this.room = null; this.seat = -1; this.court = 0; this.name = ''; this.look = null; this.id = ''; this.watch = false; }
+  constructor(conn) { this.conn = conn; this.open = true; this.room = null; this.seat = -1; this.court = 0; this.name = ''; this.look = null; this.id = ''; this.watch = false; this.heard = Date.now(); this.beats = false; }
   send(text) { if (this.open) this.conn.send(text); }
   json(o) { this.send(JSON.stringify(o)); }
   close() { if (!this.open) return; this.open = false; this.conn.close(); }
@@ -69,10 +69,21 @@ export class Lobby {
     };
   }
 
-  // Nhịp tim: máy chủ gọi 2 giây một lần, gửi {"t":"hb"} cho mọi người trong sân. Trang game không nhận được gì
+  // Nhịp tim: máy chủ gọi 2 giây một lần, gửi {"t":"hb"} cho mọi kết nối (người trong sân và kết nối xem). Trang game không nhận được gì
   // trong 6 giây thì biết kết nối đã chết (Wi‑Fi chập chờn thường làm TCP chết lặng lẽ, không bên nào hay)
   // và tự kết nối lại, thay vì đứng hình chờ mãi.
-  heartbeat() { for (const p of this.peers) if (p.open && !p.watch) p.send(HB); }
+  //
+  // Trang trả lời mỗi nhịp tim bằng chính {"t":"hb"}. Không dựa vào ping/pong của WebSocket được: proxy của Render tự trả
+  // pong thay cho trình duyệt, nên một trang đã mất (điện thoại khoá màn hình, đổi mạng, tab bị tắt ngang) vẫn giữ ghế
+  // và vẫn được gửi tin mãi, ăn CPU của máy chủ. Trang đã từng trả lời mà im quá 20 giây thì cắt.
+  // (Trang bản cũ không trả lời thì không bị cắt, như trước.)
+  heartbeat() {
+    const now = Date.now();
+    for (const p of [...this.peers]) {
+      if (p.beats && now - p.heard > 20000) { console.log(`Cắt kết nối im lặng: ${p.watch ? 'xem' : 'sân ' + p.court + ', ' + p.name}.`); p.kill(); this.closed(p); }
+      else if (p.open) p.send(HB);
+    }
+  }
 
   roster(r) {
     const seats = r.seats.map(p => p ? 1 : 0), names = r.seats.map(p => p ? p.name : ''), looks = r.seats.map(p => p ? p.look : null), host = r.seats.indexOf(r.host);
@@ -130,6 +141,8 @@ export class Lobby {
   // Chủ sân gửi cho mọi người trong sân; người khác chỉ gửi cho chủ sân, kèm vị trí của mình.
   // Riêng tin đổi vị trí ({t:'seat'}) do server xử lý, chỉ được đổi trước khi trận bắt đầu.
   message(p, text) {
+    p.heard = Date.now();
+    if (text === HB) { p.beats = true; return; }
     if (p.watch) return;
     const r = p.room;
     if (!r) return;

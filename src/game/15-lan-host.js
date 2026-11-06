@@ -9,7 +9,7 @@ function replayFrom(at, j, st, apply) {
   for (let s = 0; s + DT <= back && shuttle.mode === 'fly'; s += DT) {
     evAt = simWall = at + (s + DT) * 1000; physicsStep(DT); tryHits(); recordHist(simWall, st + s + DT); pvPatch(simWall);
   }
-  S.flightT = back; simWall = now; evAt = null; pvPatch(Infinity);
+  S.flightT = back; simWall = last; evAt = null; pvPatch(Infinity);
   if (PV.on && at < PV.ts - 1) PV.late = S.hits;
 }
 // A human's serve. Our own, while the host draws late, goes off at the moment that screen shows
