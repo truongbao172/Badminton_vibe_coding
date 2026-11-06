@@ -48,6 +48,9 @@ Nhân vật dùng model người thật trong bộ **Universal Base Characters**
   - Trang không tải được model (bản Artifact) chỉ hiện được áo choàng.
 - Game vẫn tính tư thế bằng bộ khung đơn giản như trước (vung vợt, chạy, nhảy), rồi chép tư thế đó sang khung xương của model mỗi khung hình.
 - Model nằm trong `assets/characters/` (khoảng 3 MB) và do `server.js` phục vụ. Trang không có server, ví dụ bản Artifact trên claude.ai, không tải được model nên dùng nhân vật đơn giản như cũ.
+- **Tiếng hô khi nhảy đập:** mỗi cú nhảy đập (của người hay của máy) phát câu "Sao mà đỡ được!" (`assets/sfx/sao-ma-do-duoc.m4a`), trên mọi máy trong sân, đúng lúc cú đập hiện trên màn hình máy đó. Nút tắt tiếng cũng tắt câu này. Trang không có server thì không có tiếng hô.
+- **Âm thanh cuối trận:** khi bảng kết quả hiện ra, máy của đội thắng phát nhạc chúc mừng khoảng 3 giây (`assets/sfx/chien-thang.m4a`), máy của đội thua phát câu "Rồi rồi, mày xong rồi" (`assets/sfx/thua-tran.m4a`). Nút tắt tiếng cũng tắt hai đoạn này.
+- **Hình phạt cho đội thua:** hết trận, bảng kết quả của đội thắng hiện ba hình phạt: **Quỳ gối gọi cha**, **Làm con bò**, **Quỳ lạy xin tha**. Đội thua thấy dòng "đang chọn hình phạt…" và chờ. Ai bên đội thắng bấm trước thì tính. Đội thua ra giữa sân của mình diễn hình phạt khoảng 8 giây, có bóng thoại, camera mọi máy quay lại gần để xem; xong thì bảng kết quả hiện lại. Nếu bên thắng chỉ có máy thì máy tự chọn.
 
 ## Đồ hoạ
 
@@ -80,6 +83,16 @@ Lần đầu chạy, server tải Three.js về thư mục `vendor/`. Từ lần
 - **Vai trò của `server.js`:** giữ danh sách người ở 5 sân và chuyển tin giữa chủ sân với những người còn lại. Người nào kết nối đang nghẽn thì bỏ qua bản trạng thái cũ, chỉ gửi bản mới nhất.
 - **Rớt mạng giữa trận:** server gửi nhịp tim 2 giây một lần. Máy khách 6 giây không nghe thấy gì (Wi‑Fi chập chờn, trình duyệt tạm dừng tab, máy ngủ) thì tự kết nối lại, tối đa 8 lần, và về đúng ghế cũ. Trong lúc đó máy đánh thay ghế ấy. Chủ sân rớt mạng thì sân vẫn đóng như trước.
 
-`san-cau-so-7.html` vừa là trang game, vừa là nội dung của bản Artifact trên claude.ai. Bản Artifact chỉ chơi được với máy, vì trang Artifact không được mở kết nối mạng.
+## Mã nguồn
+
+Trang game được chia thành nhiều file nhỏ trong `src/` (xem bản đồ file trong `CLAUDE.md`):
+
+- `src/index.html`: khung trang (menu, HUD).
+- `src/style.css`: toàn bộ CSS.
+- `src/game/01-core.js` … `17-loop.js`: mã game, mỗi file một phần (vật lý cầu, sân, nhân vật, AI, điều khiển, menu, LAN, vòng lặp…).
+
+`build.js` ghép các file này lại theo thứ tự tên, bọc mã game trong một hàm `(() => { ... })()`, nên mọi file dùng chung biến với nhau như khi còn là một file. `server.js` ghép lại mỗi lần tải trang, nên sửa xong chỉ cần F5.
+
+Cần bản một file (cho Artifact trên claude.ai, hoặc mở thẳng trong trình duyệt): chạy `node build.js` (hoặc `npm run build`), kết quả ở `dist/san-cau-so-7.html`. Bản Artifact chỉ chơi được với máy, vì trang Artifact không được mở kết nối mạng.
 # Badminton_vibe_coding
 # Badminton_vibe_coding

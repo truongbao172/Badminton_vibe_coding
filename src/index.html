@@ -1,0 +1,205 @@
+<title>Sân Cầu Terralogic</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&family=Chakra+Petch:wght@500;600;700&display=swap">
+<!-- @style -->
+
+<canvas id="c" aria-label="Sân cầu lông 3D"></canvas>
+<div id="vignette" aria-hidden="true"></div>
+
+<div class="hud">
+  <div class="top">
+    <div class="board" aria-live="polite">
+      <span></span><span></span><span class="head">VÁN</span><span class="head">ĐIỂM</span>
+      <span class="dot" id="dotP"></span><span class="nm"><i id="cP" style="background:var(--you)"></i><span id="nmP">BẠN</span></span><span class="gm" id="gP">0</span><span class="pt" id="pP">0</span>
+      <span class="dot" id="dotA"></span><span class="nm"><i id="cA" style="background:var(--cpu)"></i><span id="nmA">MÁY · VỪA</span></span><span class="gm" id="gA">0</span><span class="pt" id="pA">0</span>
+      <div class="meta"><span id="metaL">VÁN 1 / 3</span><span id="metaR">CHẠM 0</span></div>
+      <div class="sta" id="sta"><span>THỂ LỰC</span><i><b id="staBar"></b></i></div>
+    </div>
+    <div class="btns">
+      <div class="pill" id="online" hidden title="Số người đang mở game trên mạng LAN"><i></i><span id="onlineN">0</span><span class="pill-word">online</span></div>
+      <button class="ibtn" id="btnSound" aria-pressed="true" aria-label="Âm thanh">
+        <svg class="on-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></svg>
+        <svg class="off-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>
+      </button>
+      <button class="ibtn" id="btnPause" aria-label="Tạm dừng">
+        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="toast" role="status"></div>
+
+  <div class="bottom">
+    <div id="power" aria-hidden="true"><span>NHẸ</span><i><b id="powerBar"></b></i><span>MẠNH</span></div>
+    <div id="shot"></div>
+    <div class="watchbar" id="watchBar" hidden><span id="watchTitle">Đang xem</span><button class="ghost mini" id="watchPrev" aria-label="Sân trước">◀</button><button class="ghost mini" id="watchNext" aria-label="Sân sau">▶</button><button class="primary mini" id="watchExit">THOÁT</button></div>
+    <div id="serveHint" hidden></div>
+    <div id="hint" class="only-desk"><kbd data-k="up">W</kbd> <kbd data-k="left">A</kbd> <kbd data-k="down">S</kbd> <kbd data-k="right">D</kbd> di chuyển · <kbd data-k="jump">Space</kbd> nhảy · nhấn <kbd data-k="hit">J</kbd> đánh nhẹ · giữ <kbd data-k="hit">J</kbd> đánh mạnh · <kbd data-k="jump">Space</kbd>+giữ <kbd data-k="hit">J</kbd> bật nhảy đập · <kbd>Esc</kbd> tạm dừng</div>
+    <div class="touch-ctl">
+      <div id="stick" aria-label="Cần di chuyển"><div id="knob"></div></div>
+      <div class="acts">
+        <button class="act" id="bJump">NHẢY</button>
+        <button class="act" id="bHit">ĐÁNH</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="fpsMeter" hidden></div>
+<div id="credit">Thực hiện: <b>Bao Truong - Anh Nguyen</b> · Terralogic</div>
+
+<div class="overlay" id="menu">
+ <div class="menu-wrap">
+  <div class="stage" id="stage"></div>
+  <aside class="custom" id="custom" aria-label="Tuỳ chỉnh nhân vật">
+    <div class="label-row"><span class="label">Nhân vật của bạn</span><button class="ghost mini" id="btnRandom">Ngẫu nhiên</button></div>
+    <canvas id="preview" aria-label="Xem trước nhân vật"></canvas>
+    <div id="lookOpts"></div>
+    <div class="opt">
+      <span class="label">Kiểu tóc</span>
+      <div class="seg many" role="radiogroup">
+        <input type="radio" name="hs" id="hs-short" value="short"><label for="hs-short"><b>Ngắn</b></label>
+        <input type="radio" name="hs" id="hs-tail" value="tail"><label for="hs-tail"><b>Buộc</b></label>
+        <input type="radio" name="hs" id="hs-band" value="band"><label for="hs-band"><b>Băng đô</b></label>
+        <input type="radio" name="hs" id="hs-bald" value="bald"><label for="hs-bald"><b>Trọc</b></label>
+        <input type="radio" name="hs" id="hs-spiky" value="spiky"><label for="hs-spiky"><b>Dựng</b></label>
+      </div>
+    </div>
+    <button class="primary done" id="btnCustomDone">XONG</button>
+  </aside>
+  <div class="card wide">
+    <div class="mhead">
+      <div class="titleblock">
+        <div class="eyebrow">Cầu lông 3D · 5 sân · đơn hoặc đôi</div>
+        <h1>Sân Cầu Terralogic</h1>
+        <p>Ván 21 điểm, phải hơn 2 điểm mới thắng ván, chạm 30 là thắng ngay. Thắng 2 ván là thắng trận.</p>
+      </div>
+      <div class="mbtns"><button class="ghost mini" id="btnGfx" title="Chất lượng đồ hoạ. Bấm để đổi">Đồ hoạ: Tự động</button><button class="ghost mini only-desk" id="btnKeys">Phím</button><button class="ghost mini" id="btnCustom">Nhân vật</button></div>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tabAi" aria-controls="panelAi" aria-selected="true">Chơi với máy</button>
+      <button class="tab" role="tab" id="tabLan" aria-controls="panelLan" aria-selected="false">Chơi với người<span class="tab-n" id="tabLanN" hidden></span></button>
+    </div>
+    <p id="menuNote" class="note" hidden></p>
+
+    <div class="mgrid" id="panelAi" role="tabpanel" aria-labelledby="tabAi">
+      <section class="mcol" aria-label="Thiết lập trận">
+        <div class="group">
+          <div class="label">Thể thức</div>
+          <div class="seg two" role="radiogroup">
+            <input type="radio" name="fmt" id="f-don" value="don" checked><label for="f-don"><b>Đơn</b><span>1 đấu 1</span></label>
+            <input type="radio" name="fmt" id="f-doi" value="doi"><label for="f-doi"><b>Đôi</b><span>2 đấu 2, có đồng đội máy</span></label>
+          </div>
+        </div>
+        <div class="group">
+          <div class="label">Chọn sân</div>
+          <div class="seg five" role="radiogroup">
+            <input type="radio" name="court" id="c-1" value="0" checked><label for="c-1"><b>1</b></label>
+            <input type="radio" name="court" id="c-2" value="1"><label for="c-2"><b>2</b></label>
+            <input type="radio" name="court" id="c-3" value="2"><label for="c-3"><b>3</b></label>
+            <input type="radio" name="court" id="c-4" value="3"><label for="c-4"><b>4</b></label>
+            <input type="radio" name="court" id="c-5" value="4"><label for="c-5"><b>5</b></label>
+          </div>
+        </div>
+        <div class="group">
+          <div class="label">Trình độ của máy</div>
+          <div class="seg" role="radiogroup">
+            <input type="radio" name="diff" id="d-de" value="de"><label for="d-de"><b>Dễ</b><span>Hay đánh hỏng</span></label>
+            <input type="radio" name="diff" id="d-vua" value="vua" checked><label for="d-vua"><b>Vừa</b><span>Phong trào</span></label>
+            <input type="radio" name="diff" id="d-kho" value="kho"><label for="d-kho"><b>Khó</b><span>Đập nhiều, ít lỗi</span></label>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" id="optMarker" checked> Hiện điểm cầu rơi</label>
+        <div class="row"><button class="primary" id="btnStart">ĐÁNH VỚI MÁY</button></div>
+      </section>
+      <section class="mcol side" aria-label="Cách chơi">
+        <div class="label">Cách chơi</div>
+        <dl class="keys only-desk">
+          <dt><kbd data-k="up">W</kbd><kbd data-k="left">A</kbd><kbd data-k="down">S</kbd><kbd data-k="right">D</kbd></dt><dd>Di chuyển. Đổi phím ở nút <b>Phím</b> phía trên</dd>
+          <dt><kbd data-k="hit">J</kbd> nhấn</dt><dd>Đánh nhẹ: bỏ nhỏ, đẩy sát lưới, giao ngắn</dd>
+          <dt><kbd data-k="hit">J</kbd> giữ</dt><dd>Đánh mạnh: đập, lốp sâu, giao cao sâu. Giữ thêm <kbd data-k="down">S</kbd> để phông</dd>
+          <dt><kbd data-k="jump">Space</kbd></dt><dd>Nhảy, với được cầu cao hơn, tốn thể lực</dd>
+          <dt><kbd data-k="jump">Space</kbd><kbd data-k="hit">J</kbd></dt><dd>Nhảy rồi giữ <kbd data-k="hit">J</kbd> khi cầu cao để bật nhảy đập</dd>
+          <dt><kbd data-k="left">A</kbd><kbd data-k="right">D</kbd></dt><dd>Giữ lúc chạm cầu để đánh về góc</dd>
+          <dt><kbd>Esc</kbd></dt><dd>Tạm dừng</dd>
+          <dt><kbd>F3</kbd></dt><dd>Hiện hoặc ẩn số FPS</dd>
+        </dl>
+        <dl class="keys only-touch">
+          <dt><kbd>Cần trái</kbd></dt><dd>Di chuyển, nghiêng khi đánh để đưa cầu về góc</dd>
+          <dt><kbd>ĐÁNH</kbd> chạm</dt><dd>Đánh nhẹ: bỏ nhỏ, đẩy sát lưới, giao ngắn</dd>
+          <dt><kbd>ĐÁNH</kbd> giữ</dt><dd>Đánh mạnh: đập, lốp sâu, giao cao sâu. Kéo cần về sau để phông</dd>
+          <dt><kbd>NHẢY</kbd></dt><dd>Nhảy, rồi giữ ĐÁNH khi cầu cao để bật nhảy đập</dd>
+        </dl>
+        <p class="tip">Bấm sớm một chút khi cầu bay tới. Vòng vàng là chỗ cầu rơi, vòng xám là cầu sẽ ra ngoài. Đánh đôi: vòng trắng dưới chân là bạn.</p>
+      </section>
+    </div>
+
+    <div id="panelLan" role="tabpanel" aria-labelledby="tabLan" hidden>
+      <div class="mgrid" id="lanGroup" hidden>
+        <section class="mcol" aria-label="Các sân">
+          <div class="label-row"><span class="label">Các sân</span><span class="stat" id="lanStats"></span></div>
+          <div class="courts" id="courtList"></div>
+        </section>
+        <section class="mcol side" aria-label="Vào sân">
+          <label class="field"><span class="label">Tên của bạn</span><input id="optName" maxlength="16" autocomplete="nickname" placeholder="Người chơi"></label>
+          <div class="group">
+            <div class="label">Thể thức</div>
+            <div class="seg two" role="radiogroup" id="lfmtSeg">
+              <input type="radio" name="lfmt" id="lf-don" value="don" checked><label for="lf-don"><b>Đơn</b><span>2 người</span></label>
+              <input type="radio" name="lfmt" id="lf-doi" value="doi"><label for="lf-doi"><b>Đôi</b><span>Tối đa 4 người</span></label>
+            </div>
+            <p class="hint" id="lfmtHint"></p>
+          </div>
+          <div class="row"><button class="primary" id="btnLan">VÀO SÂN 1</button><button class="ghost" id="btnWatch" disabled title="Xem trận đang đấu ở sân này">XEM</button></div>
+          <p class="tip">Mọi người cùng mạng Wi-Fi. Người vào sân trống trước làm chủ sân và chọn thể thức. Thiếu người thì chủ sân thêm máy vào ghế trống. Phím điều khiển giống khi chơi với máy.</p>
+        </section>
+      </div>
+      <p id="lanOff">Chơi với người cần máy chủ đi kèm game. Chạy lệnh <kbd>node server.js</kbd> trên một máy, rồi mọi người cùng mạng Wi-Fi mở link nó in ra.</p>
+    </div>
+  </div>
+ </div>
+</div>
+
+<div class="overlay" id="lobby" hidden>
+  <div class="card">
+    <div class="titleblock"><div class="eyebrow" id="lobbyEyebrow">Chơi LAN</div><h2 id="lobbyTitle">Đang chờ đối thủ</h2><p id="lobbyText"></p></div>
+    <div class="seats" id="lobbySeats"></div>
+    <div class="links" id="lobbyLinks"></div>
+    <div class="row"><button class="ghost" id="btnLobbyFill" hidden>+ THÊM MÁY VÀO GHẾ TRỐNG</button></div>
+    <div class="row"><button class="primary" id="btnLobbyStart" hidden>BẮT ĐẦU</button><button class="ghost" id="btnLobbyCancel">Huỷ</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="pause" hidden>
+  <div class="card">
+    <div class="titleblock"><div class="eyebrow" id="pauseInfo">Ván 1</div><h2>Tạm dừng</h2></div>
+    <div class="row"><button class="primary" id="btnResume">TIẾP TỤC</button><button class="ghost" id="btnQuit">Bỏ trận</button></div>
+    <div class="row"><button class="ghost" id="btnPauseGfx" title="Chất lượng đồ hoạ. Bấm để đổi">Đồ hoạ: Tự động</button><button class="ghost only-desk" id="btnPauseKeys">Đổi phím</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="keysPanel" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="keysTitle">
+    <div class="titleblock"><div class="eyebrow">Điều khiển</div><h2 id="keysTitle">Đổi phím</h2>
+      <p>Bấm vào một ô rồi bấm phím mới. Phím đã dùng cho việc khác sẽ được đổi chỗ. <kbd>Backspace</kbd> xoá phím phụ, <kbd>Esc</kbd> huỷ.</p></div>
+    <div class="binds" id="bindList"></div>
+    <p id="keysNote" class="note" role="status"></p>
+    <div class="row"><button class="primary" id="btnKeysDone">XONG</button><button class="ghost" id="btnKeysReset">Về mặc định</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="result" hidden>
+  <div class="card">
+    <div class="titleblock"><div class="eyebrow" id="resEyebrow">Kết thúc trận</div><h2 id="resTitle">Bạn thắng</h2><p id="resSub"></p></div>
+    <div class="games" id="resGames"></div>
+    <div class="punish" id="punish" hidden></div>
+    <div class="row"><button class="primary" id="btnAgain">ĐẤU LẠI</button><button class="ghost" id="btnMenu">Đổi trình độ</button></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
+<!-- @game -->

@@ -8,10 +8,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildPage } from './build.js';
 
 const PORT = Number(process.env.PORT) || 7777;
 const DIR = path.dirname(fileURLToPath(import.meta.url));
-const GAME = path.join(DIR, 'san-cau-so-7.html');
 const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
 const THREE_FILE = path.join(DIR, 'vendor', 'three.min.js');
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
@@ -41,9 +41,9 @@ async function cacheThree() {
   }
 }
 
-// Đọc lại file game mỗi lần tải trang, nên sửa game xong chỉ cần F5.
+// Ghép lại trang game từ src/ mỗi lần tải trang (xem build.js), nên sửa game xong chỉ cần F5.
 function page() {
-  let body = fs.readFileSync(GAME, 'utf8');
+  let body = buildPage();
   if (fs.existsSync(THREE_FILE)) body = body.replace(THREE_URL, '/three.min.js');
   for (const [url, file] of ADDONS) if (fs.existsSync(path.join(DIR, 'vendor', file))) body = body.replace(url, '/vendor/' + file);
   return '<!doctype html><html lang="vi"><head><meta charset="utf-8">' +
@@ -108,8 +108,8 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'max-age=86400' });
     fs.createReadStream(file).pipe(res);
   } else if (url.startsWith('/assets/')) {
-    // Model nhân vật và texture. Chỉ phục vụ file nằm trong thư mục assets/, đúng các đuôi cho phép.
-    const TYPES = { '.gltf': 'model/gltf+json', '.bin': 'application/octet-stream', '.jpg': 'image/jpeg', '.png': 'image/png' };
+    // Model nhân vật, texture và âm thanh. Chỉ phục vụ file nằm trong thư mục assets/, đúng các đuôi cho phép.
+    const TYPES = { '.gltf': 'model/gltf+json', '.bin': 'application/octet-stream', '.jpg': 'image/jpeg', '.png': 'image/png', '.m4a': 'audio/mp4' };
     let file;
     try { file = path.resolve(ASSETS, '.' + decodeURIComponent(url.slice('/assets'.length))); } catch { file = ''; }
     const type = TYPES[path.extname(file).toLowerCase()];
