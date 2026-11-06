@@ -122,7 +122,6 @@ function lanEnd(msg) {
   for (const id of ['lobby', 'pause', 'result']) $(id).hidden = true;
   backToMenu();
   $('menuNote').textContent = msg; $('menuNote').hidden = !msg;
-  if (msg) showTab(true);
   // The server frees the seat once it gets our close frame; fetch the courts again right after that
   setTimeout(refreshRooms, 300);
 }

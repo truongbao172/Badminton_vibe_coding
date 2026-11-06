@@ -29,19 +29,15 @@ $('btnMenu').addEventListener('click', () => { if (S.mode !== 'ai') lanEnd(''); 
 $('btnLan').addEventListener('click', () => lanJoin());
 $('btnLobbyCancel').addEventListener('click', () => lanEnd(''));
 $('btnLobbyStart').addEventListener('click', () => { if (S.mode === 'host') newMatch(); });
+// One mode per page. With the server (LAN, Render, Cloudflare): only "Chơi với người"; playing the computer is joining an
+// empty court and putting the computer in the empty seats. The one-file page (no server) can only play the computer:
+// it shows the old setup instead, with the difficulty, landing marker and how-to moved over from the people panel.
 if (window.SAN7_LAN) { $('lanGroup').hidden = false; $('lanOff').hidden = true; }
-// Menu tabs: "Chơi với máy" and "Chơi với người" (remembered; people tab first when the LAN server is running)
-const TAB_KEY = 'san7-tab';
-function showTab(lan) {
-  $('tabAi').setAttribute('aria-selected', String(!lan)); $('tabLan').setAttribute('aria-selected', String(lan));
-  $('panelAi').hidden = lan; $('panelLan').hidden = !lan;
-  try { localStorage.setItem(TAB_KEY, lan ? 'lan' : 'ai'); } catch (e) {}
+else {
+  document.querySelector('.tabs').hidden = true; $('panelLan').hidden = true; $('panelAi').hidden = false;
+  $('aiStartRow').before($('diffGroup'), $('markerRow')); $('diffHint').hidden = true;
+  $('aiSide').append($('howTo'));
 }
-$('tabAi').addEventListener('click', () => showTab(false));
-$('tabLan').addEventListener('click', () => showTab(true));
-let savedTab = null;
-try { savedTab = localStorage.getItem(TAB_KEY); } catch (e) {}
-showTab(savedTab ? savedTab === 'lan' : !!window.SAN7_LAN);
 
 /* ---------- character customizer ---------- */
 const LOOK_OPTS = [

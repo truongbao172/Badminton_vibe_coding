@@ -167,7 +167,7 @@ function exitWatch(msg) {
   S.mode = 'ai'; document.body.classList.remove('watching'); $('watchBar').hidden = true;
   ATH[0].g.visible = ATH[1].g.visible = true; shMesh.visible = blob.visible = true;
   backToMenu();
-  if (msg) { $('menuNote').textContent = msg; $('menuNote').hidden = false; showTab(true); }
+  if (msg) { $('menuNote').textContent = msg; $('menuNote').hidden = false; }
 }
 function cycleWatch(dir) {
   const list = liveCourts();

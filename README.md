@@ -18,6 +18,8 @@ Lệnh này in ra hai loại link:
 
 Mở tab **Chơi với người** trong menu. Tab này liệt kê 5 sân: sân nào trống, sân nào đang chờ người hay đang đấu, có mấy người và tên từng người. Mọi người nhập **tên**, bấm chọn **cùng một sân** rồi bấm **VÀO SÂN**.
 
+- **Đánh với máy:** trang chạy qua máy chủ chỉ còn tab **Chơi với người**. Muốn đánh với máy (một mình, hoặc thiếu người), vào một sân trống rồi thêm máy vào ghế trống. Trình độ của máy chọn ngay trong tab này. Bản một file `dist/san-cau-so-7.html` (không có máy chủ) vẫn chỉ có phần đánh với máy như cũ.
+
 - **Tên:** hiện ở đúng vị trí người đó đứng trong phòng chờ, trên đầu nhân vật lúc đánh, và trong các thông báo cú đánh. Tên được nhớ trên máy cho lần sau.
 - **Nhân vật:** bảng bên trái menu cho đổi màu áo, quần, da, tóc, vợt và kiểu tóc (trên điện thoại bấm nút **Nhân vật**). Lựa chọn được nhớ trên máy. Khi chơi LAN, mọi người trong sân thấy đúng nhân vật bạn chọn, ghế do máy đánh mặc màu mặc định.
 - **Xem các sân khác:** lúc đang đánh, các sân bên cạnh hiện trận thật của người khác (có bảng tên). Trong tab **Chơi với người**, chọn một sân đang đấu rồi bấm **XEM SÂN n** để xem như khán giả. Phím ◀ ▶ (hoặc A / D) để chuyển sân, Esc để thoát.

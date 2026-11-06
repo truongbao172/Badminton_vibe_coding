@@ -79,12 +79,13 @@
       <div class="mbtns"><button class="ghost mini" id="btnGfx" title="Chất lượng đồ hoạ. Bấm để đổi">Đồ hoạ: Tự động</button><button class="ghost mini only-desk" id="btnKeys">Phím</button><button class="ghost mini" id="btnCustom">Nhân vật</button></div>
     </div>
     <div class="tabs" role="tablist">
-      <button class="tab" role="tab" id="tabAi" aria-controls="panelAi" aria-selected="true">Chơi với máy</button>
-      <button class="tab" role="tab" id="tabLan" aria-controls="panelLan" aria-selected="false">Chơi với người<span class="tab-n" id="tabLanN" hidden></span></button>
+      <button class="tab" role="tab" id="tabLan" aria-controls="panelLan" aria-selected="true">Chơi với người<span class="tab-n" id="tabLanN" hidden></span></button>
     </div>
     <p id="menuNote" class="note" hidden></p>
 
-    <div class="mgrid" id="panelAi" role="tabpanel" aria-labelledby="tabAi">
+    <!-- Bản một file không có máy chủ (dist/san-cau-so-7.html): chỉ đánh với máy, 12-menu.js chuyển trình độ, điểm cầu rơi
+         và cách chơi vào đây. Có máy chủ thì khung này ẩn, chơi với máy bằng cách thêm máy vào ghế trống. -->
+    <div class="mgrid" id="panelAi" hidden>
       <section class="mcol" aria-label="Thiết lập trận">
         <div class="group">
           <div class="label">Thể thức</div>
@@ -103,40 +104,12 @@
             <input type="radio" name="court" id="c-5" value="4"><label for="c-5"><b>5</b></label>
           </div>
         </div>
-        <div class="group">
-          <div class="label">Trình độ của máy</div>
-          <div class="seg" role="radiogroup">
-            <input type="radio" name="diff" id="d-de" value="de"><label for="d-de"><b>Dễ</b><span>Hay đánh hỏng</span></label>
-            <input type="radio" name="diff" id="d-vua" value="vua" checked><label for="d-vua"><b>Vừa</b><span>Phong trào</span></label>
-            <input type="radio" name="diff" id="d-kho" value="kho"><label for="d-kho"><b>Khó</b><span>Đập nhiều, ít lỗi</span></label>
-          </div>
-        </div>
-        <label class="check"><input type="checkbox" id="optMarker" checked> Hiện điểm cầu rơi</label>
-        <div class="row"><button class="primary" id="btnStart">ĐÁNH VỚI MÁY</button></div>
+        <div class="row" id="aiStartRow"><button class="primary" id="btnStart">ĐÁNH VỚI MÁY</button></div>
       </section>
-      <section class="mcol side" aria-label="Cách chơi">
-        <div class="label">Cách chơi</div>
-        <dl class="keys only-desk">
-          <dt><kbd data-k="up">W</kbd><kbd data-k="left">A</kbd><kbd data-k="down">S</kbd><kbd data-k="right">D</kbd></dt><dd>Di chuyển. Đổi phím ở nút <b>Phím</b> phía trên</dd>
-          <dt><kbd data-k="hit">J</kbd> nhấn</dt><dd>Đánh nhẹ: bỏ nhỏ, đẩy sát lưới, giao ngắn</dd>
-          <dt><kbd data-k="hit">J</kbd> giữ</dt><dd>Đánh mạnh: đập, lốp sâu, giao cao sâu. Giữ thêm <kbd data-k="down">S</kbd> để phông</dd>
-          <dt><kbd data-k="jump">Space</kbd></dt><dd>Nhảy, với được cầu cao hơn, tốn thể lực</dd>
-          <dt><kbd data-k="jump">Space</kbd><kbd data-k="hit">J</kbd></dt><dd>Nhảy rồi giữ <kbd data-k="hit">J</kbd> khi cầu cao để bật nhảy đập</dd>
-          <dt><kbd data-k="left">A</kbd><kbd data-k="right">D</kbd></dt><dd>Giữ lúc chạm cầu để đánh về góc</dd>
-          <dt><kbd>Esc</kbd></dt><dd>Tạm dừng</dd>
-          <dt><kbd>F3</kbd></dt><dd>Hiện hoặc ẩn số FPS</dd>
-        </dl>
-        <dl class="keys only-touch">
-          <dt><kbd>Cần trái</kbd></dt><dd>Di chuyển, nghiêng khi đánh để đưa cầu về góc</dd>
-          <dt><kbd>ĐÁNH</kbd> chạm</dt><dd>Đánh nhẹ: bỏ nhỏ, đẩy sát lưới, giao ngắn</dd>
-          <dt><kbd>ĐÁNH</kbd> giữ</dt><dd>Đánh mạnh: đập, lốp sâu, giao cao sâu. Kéo cần về sau để phông</dd>
-          <dt><kbd>NHẢY</kbd></dt><dd>Nhảy, rồi giữ ĐÁNH khi cầu cao để bật nhảy đập</dd>
-        </dl>
-        <p class="tip">Bấm sớm một chút khi cầu bay tới. Vòng vàng là chỗ cầu rơi, vòng xám là cầu sẽ ra ngoài. Đánh đôi: vòng trắng dưới chân là bạn.</p>
-      </section>
+      <section class="mcol side" id="aiSide"></section>
     </div>
 
-    <div id="panelLan" role="tabpanel" aria-labelledby="tabLan" hidden>
+    <div id="panelLan" role="tabpanel" aria-labelledby="tabLan">
       <div class="mgrid" id="lanGroup" hidden>
         <section class="mcol" aria-label="Các sân">
           <div class="label-row"><span class="label">Các sân</span><span class="stat" id="lanStats"></span></div>
@@ -152,9 +125,39 @@
             </div>
             <p class="hint" id="lfmtHint"></p>
           </div>
+          <div class="group" id="diffGroup">
+            <div class="label">Trình độ của máy</div>
+            <div class="seg" role="radiogroup">
+              <input type="radio" name="diff" id="d-de" value="de"><label for="d-de"><b>Dễ</b><span>Hay đánh hỏng</span></label>
+              <input type="radio" name="diff" id="d-vua" value="vua" checked><label for="d-vua"><b>Vừa</b><span>Phong trào</span></label>
+              <input type="radio" name="diff" id="d-kho" value="kho"><label for="d-kho"><b>Khó</b><span>Đập nhiều, ít lỗi</span></label>
+            </div>
+            <p class="hint" id="diffHint">Cho máy ngồi vào ghế trống, khi bạn làm chủ sân.</p>
+          </div>
+          <label class="check" id="markerRow"><input type="checkbox" id="optMarker" checked> Hiện điểm cầu rơi</label>
           <div class="row"><button class="primary" id="btnLan">VÀO SÂN 1</button><button class="ghost" id="btnWatch" disabled title="Xem trận đang đấu ở sân này">XEM</button></div>
-          <p class="tip">Mọi người cùng mạng Wi-Fi. Người vào sân trống trước làm chủ sân và chọn thể thức. Thiếu người thì chủ sân thêm máy vào ghế trống. Phím điều khiển giống khi chơi với máy.</p>
+          <p class="tip">Người vào sân trống trước làm chủ sân và chọn thể thức. Muốn đánh với máy, hoặc thiếu người: vào sân trống rồi thêm máy vào ghế trống.</p>
         </section>
+        <div class="howto" id="howTo">
+          <div class="label">Cách chơi</div>
+          <dl class="keys only-desk">
+            <dt><kbd data-k="up">W</kbd><kbd data-k="left">A</kbd><kbd data-k="down">S</kbd><kbd data-k="right">D</kbd></dt><dd>Di chuyển. Đổi phím ở nút <b>Phím</b> phía trên</dd>
+            <dt><kbd data-k="hit">J</kbd> nhấn</dt><dd>Đánh nhẹ: bỏ nhỏ, đẩy sát lưới, giao ngắn</dd>
+            <dt><kbd data-k="hit">J</kbd> giữ</dt><dd>Đánh mạnh: đập, lốp sâu, giao cao sâu. Giữ thêm <kbd data-k="down">S</kbd> để phông</dd>
+            <dt><kbd data-k="jump">Space</kbd></dt><dd>Nhảy, với được cầu cao hơn, tốn thể lực</dd>
+            <dt><kbd data-k="jump">Space</kbd><kbd data-k="hit">J</kbd></dt><dd>Nhảy rồi giữ <kbd data-k="hit">J</kbd> khi cầu cao để bật nhảy đập</dd>
+            <dt><kbd data-k="left">A</kbd><kbd data-k="right">D</kbd></dt><dd>Giữ lúc chạm cầu để đánh về góc</dd>
+            <dt><kbd>Esc</kbd></dt><dd>Tạm dừng</dd>
+            <dt><kbd>F3</kbd></dt><dd>Hiện hoặc ẩn số FPS</dd>
+          </dl>
+          <dl class="keys only-touch">
+            <dt><kbd>Cần trái</kbd></dt><dd>Di chuyển, nghiêng khi đánh để đưa cầu về góc</dd>
+            <dt><kbd>ĐÁNH</kbd> chạm</dt><dd>Đánh nhẹ: bỏ nhỏ, đẩy sát lưới, giao ngắn</dd>
+            <dt><kbd>ĐÁNH</kbd> giữ</dt><dd>Đánh mạnh: đập, lốp sâu, giao cao sâu. Kéo cần về sau để phông</dd>
+            <dt><kbd>NHẢY</kbd></dt><dd>Nhảy, rồi giữ ĐÁNH khi cầu cao để bật nhảy đập</dd>
+          </dl>
+          <p class="tip">Bấm sớm một chút khi cầu bay tới. Vòng vàng là chỗ cầu rơi, vòng xám là cầu sẽ ra ngoài. Đánh đôi: vòng trắng dưới chân là bạn.</p>
+        </div>
       </div>
       <p id="lanOff">Chơi với người cần máy chủ đi kèm game. Chạy lệnh <kbd>node server.js</kbd> trên một máy, rồi mọi người cùng mạng Wi-Fi mở link nó in ra.</p>
     </div>
