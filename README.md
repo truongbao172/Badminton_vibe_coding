@@ -81,7 +81,7 @@ Có hai cách đưa máy chủ lên mạng, mỗi cách một file cấu hình r
 ```bash
 npx wrangler login     # lần đầu: đăng nhập tài khoản Cloudflare
 npm run cf:dev         # chạy thử trên máy: http://localhost:8787
-npm run cf:deploy      # đưa lên https://san-cau-terralogic.<tài-khoản>.workers.dev
+npm run cf:deploy      # đưa lên https://badminton-play-fun.<tài-khoản>.workers.dev
 ```
 
 Hai lệnh này tự chạy `node build.js web` trước (ghi trang và file tĩnh vào `dist/web/`). Xem log vào/ra sân: `npx wrangler tail`.

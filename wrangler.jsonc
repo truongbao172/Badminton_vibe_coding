@@ -2,7 +2,7 @@
 //   npx wrangler dev      run locally (http://localhost:8787)
 //   npx wrangler deploy   publish to <name>.<account>.workers.dev
 {
-  "name": "san-cau-terralogic",
+  "name": "badminton-play-fun",
   "main": "cloudflare/worker.js",
   "compatibility_date": "2026-10-01",
 
