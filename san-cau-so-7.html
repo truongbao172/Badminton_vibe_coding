@@ -1959,7 +1959,7 @@ function teamName(t) {
 // LAN players' sticks, each in that player's own screen frame (far team sees the court flipped)
 // pos: the guest is sending its own position, see update()
 // clk/buf: its position reports, drawn a little in the past (see netClock); vt: how far its screen has got (host clock)
-const remoteIn = [0, 1, 2, 3].map(() => ({ x: 0, z: 0, run: false, pos: false, vt: 0, clk: netClock(), buf: [] }));
+const remoteIn = [0, 1, 2, 3].map(() => ({ x: 0, z: 0, run: false, pos: false, vt: 0, rtt: [], lagS: [], clk: netClock(), buf: [] }));
 function worldInput(idx) {
   const r = idx === me ? input : remoteIn[idx];
   return team(idx) ? { x: -r.x, z: -r.z, run: r.run } : r;
@@ -2237,11 +2237,11 @@ function physicsStep(dt) {
 }
 
 // The shuttle is down. A guest on that side sees the match a little late and may still hit it on its screen
-// (takeGuestHit). Wait only while one of them really could (at most 0.6 s); otherwise judge it at once.
+// (takeGuestHit). Wait only while one of them really could (at most 1 s); otherwise judge it at once.
 function touchDown(x, z) {
   const half = z > 0 ? 0 : 1, w = simWall;
   if (S.mode === 'host' && S.state === 'rally' && !S.netFault && half !== S.lastTeam && members(half).some(i => isHuman(i) && (i !== me || PV.on) && mayStillHit(i, w))) {
-    pendLand = { x, z, half, w, until: performance.now() + 600 }; return;
+    pendLand = { x, z, half, w, until: performance.now() + 1000 }; return;
   }
   landFx(x, z); landed(x, z);
 }
@@ -2965,9 +2965,9 @@ function onNet(m) {
     if (m.t === 'in') {
       const r = remoteIn[i], now = performance.now(); r.x = clamp(+m.x || 0, -1, 1); r.z = clamp(+m.z || 0, -1, 1); r.run = !!m.r;
       if (Number.isFinite(m.vt)) r.vt = +m.vt;
-      // Echoed back in the snapshots, so that guest can time the round trip; lg: how far behind its screen is
-      if (Number.isFinite(m.tm)) { r.ec = +m.tm; r.ecAt = now; }
-      if (Number.isFinite(m.lg)) r.lg = clamp(+m.lg, 0, 400);
+      // How far behind the present that screen is (guestLag): he echoes our latest snapshot time, for the round trip
+      if (Number.isFinite(m.he) && m.he > 0 && now - m.he > 0 && now - m.he < 3000) { r.rtt.push(now - m.he); if (r.rtt.length > 300) r.rtt.shift(); }
+      if (Number.isFinite(m.vt) && m.vt > 0) { r.lagS.push(now - m.vt); if (r.lagS.length > 60) r.lagS.shift(); }
       if (Number.isFinite(m.px) && Number.isFinite(m.pz)) {
         const vmax = RUN_SP * 1.2, L = r.buf[r.buf.length - 1];
         let t = clockIn(r.clk, +m.tm, now);
@@ -3004,7 +3004,7 @@ function syncHumans(prevNames = S.names) {
     const on = i === me || (i < S.n && !!S.roster[i]);
     if (on === S.human[i]) continue;
     // (a new connection, maybe a reloaded page: its clock and position reports start afresh)
-    S.human[i] = on; Object.assign(remoteIn[i], { x: 0, z: 0, run: false, pos: false, vt: 0, seen: null, ec: 0, lg: null, clk: netClock(), buf: [], prevRt: null });
+    S.human[i] = on; Object.assign(remoteIn[i], { x: 0, z: 0, run: false, pos: false, vt: 0, seen: null, rtt: [], lagS: [], clk: netClock(), buf: [], prevRt: null });
     const a = ath(i); a.armed = null; a.holding = a.serveHold = false; a.plan = null;
     if (live) emit({ k: 'toast', big: on ? `${S.names[i] || 'Người chơi'} vào sân` : `${prevNames[i] || 'Một người'} đã rời sân`, small: on ? '' : 'Máy đánh thay vị trí đó', dur: 1.6 });
     if (live && !on && S.state === 'serve' && S.server === i) S.timer = 1.1;
@@ -3021,9 +3021,7 @@ function snapshot() {
     rg: [RD.vis ? 1 : 0, r3(RD.x), r3(RD.z), RD.out ? 1 : 0, RD.to],
     // For a guest judging its own hits: last team to hit, serve or not, the receiver, net fault, hit count
     hx: [S.lastTeam ?? -1, S.isServe ? 1 : 0, S.receiver, S.netFault ? 1 : 0, S.hits],
-    hs: stopT > 0 ? 1 : 0, // hit-stop: the match is running at a quarter speed
-    // each guest's latest report time, plus how long it has waited here: that guest's round trip (rttIn)
-    ec: remoteIn.map(r => r.ec ? Math.round(r.ec + performance.now() - r.ecAt) : 0) };
+    hs: stopT > 0 ? 1 : 0 }; // hit-stop: the match is running at a quarter speed
 }
 // A buffer entry for drawing a snapshot later (a guest's snapshots, and the host's own while it draws late, PV)
 function bufEntry(m, t) {
@@ -3039,10 +3037,8 @@ function applySnap(m) {
   let t = clockIn(NET.clk, m.tm, now);
   if (B.length && t < B[B.length - 1].t) t = B[B.length - 1].t;
   B.push(bufEntry(m, t));
-  while (B.length > 2 && B[1].t < now - 1500) B.shift();
-  // Round trip to the host and back (its echo of our latest report)
-  const ec = Array.isArray(m.ec) ? +m.ec[me] : 0, rt = now - ec;
-  if (ec > 0 && rt > 0 && rt < 3000) { NET.rtt.push(rt); if (NET.rtt.length > 120) NET.rtt.shift(); }
+  while (B.length > 2 && B[1].t < now - 2000) B.shift();
+  NET.he = m.tm; NET.heAt = now; // (echoed back in our reports, for the host to time the round trip)
   // The host has taken our own hit: the snapshots from this one on carry it
   if (NET.hit && NET.hit.ok && NET.hit.until === null) NET.hit.until = t;
   if (m.pa !== S.paused) applyPaused(m.pa);
@@ -3088,24 +3084,26 @@ function clockIn(c, tm, now) {
   const s = now - tm;
   if (c.off === null || s < c.off) c.off = s; else c.off += (s - c.off) * 0.002;
   const t = Math.min(now, tm + c.off);
-  c.late.push(now - t); if (c.late.length > 180) c.late.shift();
+  c.late.push(now - t); if (c.late.length > 360) c.late.shift();
   return t;
 }
-// How far behind to draw: 90% of reports arrive within it, plus one report interval. It changes slowly, so the
-// drawn time only ever runs a few percent faster or slower than real time and never jumps.
-// (gap: one report interval; spectators get only ~10 summaries a second, so they pass 110 and a higher limit)
-function clockTick(c, dt, gap = 20, hi = 200) {
+// How far behind to draw: 97% of the last ~6 s of reports arrive within it, plus one report interval. Through
+// Render a report is often 100-300 ms late (measured from here: p90 100-230 ms, p98 200-370 ms, now and then over
+// a second), and every report that comes after its time makes the picture guess ahead and then correct: that is the
+// stutter. So it waits for nearly all of them (up to 0.4 s). It changes slowly, so drawn time never jumps; the
+// host draws its own screen just as late (PV), so both still show the same moment.
+function clockTick(c, dt, gap = 20, hi = 400) {
   if (c.late.length < 20) return;
-  const s = c.late.slice().sort((x, y) => x - y), want = clamp(s[Math.floor(s.length * 0.9)] + gap, 30, hi);
-  c.D += clamp(want - c.D, -dt * 40, dt * 80);
+  const s = c.late.slice().sort((x, y) => x - y), want = clamp(s[Math.floor(s.length * 0.97)] + gap, 30, hi);
+  c.D += clamp(want - c.D, -dt * 30, dt * 100);
 }
-const NET = { clk: netClock(), buf: [], evq: [], rtt: [], hit: null, hid: 0, shownA: null, shRaw: null, shKey: null, shOff: { x: 0, y: 0, z: 0 } };
+const NET = { clk: netClock(), buf: [], evq: [], he: null, heAt: 0, hit: null, hid: 0, shownA: null, shRaw: null, shKey: null, shOff: { x: 0, y: 0, z: 0 } };
 function resetNet() {
-  Object.assign(NET, { clk: netClock(), buf: [], evq: [], rtt: [], hit: null, shownA: null, shRaw: null, shKey: null, lerpTo: null, prevRt: null });
+  Object.assign(NET, { clk: netClock(), buf: [], evq: [], he: null, heAt: 0, hit: null, shownA: null, shRaw: null, shKey: null, lerpTo: null, prevRt: null });
   NET.shOff.x = NET.shOff.y = NET.shOff.z = 0; jumpHeard = 0;
   hostHist.length = 0; pendLand = null; shVis.x = shVis.y = shVis.z = 0;
   for (const a of ATH) { a.nRaw = null; a.predT = 0; }
-  for (const r of remoteIn) Object.assign(r, { clk: netClock(), buf: [], vt: 0, seen: null, ec: 0, lg: null, pos: false });
+  for (const r of remoteIn) Object.assign(r, { clk: netClock(), buf: [], vt: 0, seen: null, rtt: [], lagS: [], pos: false });
 }
 // The report at or before time rt, and the one after it (null when rt is past the newest)
 function netPair(buf, rt) {
@@ -3271,9 +3269,7 @@ function guestTick(dt) {
   // Report stick and position to the host: every frame during a rally (the host draws us from these, and waits
   // for vt, how far this screen has got, before giving a point on our side), otherwise only when they change
   const msg = { t: 'in', x: +input.x.toFixed(2), z: +input.z.toFixed(2), r: input.run ? 1 : 0, tm: Math.round(now), vt };
-  // How far behind the host's present this screen draws: the drawing delay plus the trip from the host (half the
-  // quickest round trip). The host draws its own screen that late too (PV), so both show the same moment together.
-  if (NET.rtt.length) msg.lg = Math.round(NET.clk.D + Math.min(...NET.rtt) / 2);
+  if (Number.isFinite(NET.he)) msg.he = Math.round(NET.he + now - NET.heAt);
   if (playing) Object.assign(msg, { px: r3(a.x), pz: r3(a.z), vx: r3(a.vx), vz: r3(a.vz) });
   const k = [msg.x, msg.z, msg.r, msg.px, msg.pz].join(',');
   if ((playing || k !== lastIn) && now - lastInAt >= 14 && !(ws && ws.bufferedAmount > 4096)) { lastIn = k; lastInAt = now; send(msg); }
@@ -3284,7 +3280,7 @@ function guestTick(dt) {
 function recordHist(w, st) {
   if (S.mode !== 'host') return;
   hostHist.push({ w, st, p: { x: shuttle.p.x, y: shuttle.p.y, z: shuttle.p.z }, mode: shuttle.mode, hn: S.hits });
-  while (hostHist.length > 2 && hostHist[0].w < w - 900) hostHist.shift();
+  while (hostHist.length > 2 && hostHist[0].w < w - 1300) hostHist.shift();
 }
 function takeGuestHit(i, m) {
   if (S.paused || S.state !== 'rally' || S.netFault || !(m.k in SHOTS) || m.k === 'long' || m.k === 'short') return false;
@@ -3294,7 +3290,7 @@ function takeGuestHit(i, m) {
   const p = vec(m.p), v = vec(m.v);
   if (!p || !v || Math.sign(p.z) !== a.side || p.y < 0.1 || p.y > 3.8 || v.z * a.side >= 0 || Math.hypot(v.x, v.y, v.z) > 80) return false;
   const now = performance.now(), at = +m.at, H = hostHist;
-  if (!Number.isFinite(at) || at < now - 700 || !H.length || H[0].w > at) return false;
+  if (!Number.isFinite(at) || at < now - 1100 || !H.length || H[0].w > at) return false;
   let j = H.length - 1;
   while (j > 0 && H[j].w > at) j--;
   const e0 = H[j], e1 = H[j + 1] || e0;
@@ -3315,7 +3311,7 @@ function takeGuestHit(i, m) {
 // play it forward to now; the computer players start as late as the news reached us. The host's late screen (PV)
 // gets the new course from `at` on; if it had already shown past `at`, its shuttle slides over.
 function replayFrom(at, j, st, apply) {
-  const now = performance.now(), back = clamp(S.simT - st, 0, 0.7);
+  const now = performance.now(), back = clamp(S.simT - st, 0, 1.1);
   hostHist.length = j + 1; pendLand = null; PV.patchFrom = at;
   evAt = simWall = at; apply();
   for (const k of members(1 - S.lastTeam)) { const b = ath(k); if (!isHuman(k) && b.delay > 0) b.delay = Math.max(0, b.delay - back); }
@@ -3330,7 +3326,7 @@ function serveAs(idx, type) {
   const H = hostHist, at = PV.ts;
   let j = H.length - 1;
   while (j > 0 && H[j].w > at) j--;
-  if (!PV.on || idx !== me || !H.length || H[j].w > at || S.simT - H[j].st > 0.7) { launchServe(type); return; }
+  if (!PV.on || idx !== me || !H.length || H[j].w > at || S.simT - H[j].st > 1.1) { launchServe(type); return; }
   replayFrom(at, j, H[j].st, () => launchServe(type));
 }
 
@@ -3383,6 +3379,14 @@ function pvOwnHit(A, B, ts) {
   shuttle.p = keep.p; shuttle.v = keep.v;
   return takeGuestHit(me, { k: type, at: ts, p: [s.from.x, s.from.y, s.from.z], v: [s.vel.x, s.vel.y, s.vel.z], ax: a.x, az: a.z });
 }
+// How far behind our present guest i's screen is. Each report says which moment that screen shows (vt, on our
+// clock); it left there half a round trip before it got here. The quickest of the last second's reports is the one
+// that was least held up on the way.
+function guestLag(i) {
+  const r = remoteIn[i];
+  if (!r.lagS.length || !r.rtt.length) return NaN;
+  return Math.min(...r.lagS) - Math.min(...r.rtt) / 2;
+}
 function pvStop() {
   PV.on = false;
   const Q = PV.evq; PV.evq = [];
@@ -3401,9 +3405,9 @@ function pvFrame(dt) {
     return false; // (its first snapshot is kept next frame)
   }
   // As late as the latest guest screen, changing slowly so that drawn time never jumps
-  const lag = guests.map(i => remoteIn[i].lg).filter(Number.isFinite);
-  const want = guests.length ? clamp(lag.length ? Math.max(...lag) : 150, 40, 300) : 0;
-  PV.L += clamp(want - PV.L, -dt * 40, dt * 80);
+  const lag = guests.map(guestLag).filter(Number.isFinite);
+  const want = guests.length ? clamp(lag.length ? Math.max(...lag) : 150, 40, 600) : 0;
+  PV.L += clamp(want - PV.L, -dt * 30, dt * 100); // (as fast as a guest's own delay moves, clockTick)
   const B = PV.buf, ts = last - PV.L;
   if ((!guests.length && PV.L < 2) || (!live && (!B.length || ts >= B[B.length - 1].t))) { pvStop(); return false; }
   if (!B.length) return false;
@@ -3555,7 +3559,7 @@ function updateGhosts(dt) {
     if (!G.buf.length) continue;
     // Drawn a little in the past (about one summary interval plus the network's worst lateness), between two
     // summaries already here, so they can arrive late or bunched without the picture jumping
-    clockTick(G.clk, dt, 110, 400);
+    clockTick(G.clk, dt, 110, 500);
     const rt = last - G.clk.D, [A, B] = netPair(G.buf, rt), dtR = G.prevRt == null ? dt : clamp((rt - G.prevRt) / 1000, 0, 0.1);
     G.prevRt = rt;
     // For a new serve the host puts everyone straight in place: so does this, instead of sliding them there
