@@ -1,5 +1,5 @@
-// Logic 5 sân dùng chung cho hai máy chủ: server.js (Node: LAN, Render) và cloudflare/worker.js (Cloudflare Workers).
-// Không dùng API của Node ở đây. Mỗi máy chủ tự lo WebSocket, rồi đưa cho Lobby một "conn":
+// Logic 5 sân của server.js: ghế, chủ sân, chuyển tin, kết nối xem. Phần WebSocket nằm ở server.js,
+// mỗi kết nối được đưa cho Lobby dưới dạng một "conn":
 //   conn.send(text)   gửi một tin chữ
 //   conn.close()      đóng nhẹ nhàng (gửi khung close)
 //   conn.kill()       cắt ngay

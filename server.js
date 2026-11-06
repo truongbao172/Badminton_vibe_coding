@@ -16,7 +16,7 @@ const DIR = path.dirname(fileURLToPath(import.meta.url));
 const THREE_FILE = path.join(DIR, 'vendor', 'three.min.js');
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const ASSETS = path.join(DIR, 'assets');
-// 5 sân, người chơi, chủ sân, kết nối xem: xem lobby.js (dùng chung với cloudflare/worker.js)
+// 5 sân, người chơi, chủ sân, kết nối xem: xem lobby.js
 const lobby = new Lobby();
 
 // Lưu Three.js và thư viện đọc model về máy một lần, để lần sau chơi LAN không cần Internet.

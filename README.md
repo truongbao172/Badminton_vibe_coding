@@ -73,18 +73,7 @@ Lần đầu chạy, server tải Three.js về thư mục `vendor/`. Từ lần
 
 ## Chơi qua Internet
 
-Có hai cách đưa máy chủ lên mạng, mỗi cách một file cấu hình riêng. Cả hai dùng chung logic 5 sân trong `lobby.js`, nên chơi giống hệt nhau.
-
-- **Render** (`render.yaml`): chạy `server.js` như khi chơi LAN. Gói miễn phí ngủ sau 15 phút không ai vào, lần mở đầu tiên chờ khoảng 1 phút.
-- **Cloudflare Workers** (`wrangler.jsonc`): trang, Three.js và `assets/` là file tĩnh trên Cloudflare; `cloudflare/worker.js` chỉ lo `/rooms` và `/ws`, chuyển hết cho một Durable Object giữ 5 sân. Không ngủ, chạy được trên gói miễn phí.
-
-```bash
-npx wrangler login     # lần đầu: đăng nhập tài khoản Cloudflare
-npm run cf:dev         # chạy thử trên máy: http://localhost:8787
-npm run cf:deploy      # đưa lên https://badminton-play-fun.<tài-khoản>.workers.dev
-```
-
-Hai lệnh này tự chạy `node build.js web` trước (ghi trang và file tĩnh vào `dist/web/`). Xem log vào/ra sân: `npx wrangler tail`.
+Đưa máy chủ lên Render bằng `render.yaml`: Render chạy `server.js` như khi chơi LAN. Gói miễn phí ngủ sau 15 phút không ai vào, lần mở đầu tiên chờ khoảng 1 phút.
 
 ## Cách hoạt động
 
@@ -95,7 +84,7 @@ Hai lệnh này tự chạy `node build.js web` trước (ghi trang và file tĩ
 - **Xem sân và các sân bên cạnh:** chủ sân gửi bản tóm tắt trận khoảng 10 lần mỗi giây, kèm thời điểm và cú đánh gần nhất. Người xem vẽ trận lùi lại khoảng 0,15 đến 0,2 giây, nội suy giữa hai bản tóm tắt, và vẽ quả cầu bay đúng từ chỗ cú đánh xảy ra.
 - **Mọi màn hình cùng thấy một khoảnh khắc:** khi có người chơi qua mạng, máy chủ sân cũng vẽ quả cầu, người chơi máy, điểm và âm thanh lùi lại đúng bằng độ trễ của máy khách (khách tự đo và báo lên, F3 hiện con số này). Nhờ vậy cầu chạm đất cùng lúc trên mọi máy. Nhân vật của chính chủ sân vẫn chạy ngay; cú đánh và cú giao cầu của chủ sân được xét theo những gì màn hình chủ sân thấy, rồi đưa về đúng thời điểm đó như cú đánh của khách.
 - **Điểm hiện đúng lúc cầu chạm đất:** máy khách đổi điểm, phát âm thanh và hiện thông báo khi quả cầu trên màn hình mình chạm đất, không phải lúc tin từ chủ sân vừa đến.
-- **Vai trò của máy chủ (`server.js` hoặc Cloudflare Worker, logic chung trong `lobby.js`):** giữ danh sách người ở 5 sân và chuyển tin giữa chủ sân với những người còn lại. Người nào kết nối đang nghẽn thì bỏ qua bản trạng thái cũ, chỉ gửi bản mới nhất.
+- **Vai trò của `server.js` (logic sân trong `lobby.js`):** giữ danh sách người ở 5 sân và chuyển tin giữa chủ sân với những người còn lại. Người nào kết nối đang nghẽn thì bỏ qua bản trạng thái cũ, chỉ gửi bản mới nhất.
 - **Rớt mạng giữa trận:** server gửi nhịp tim 2 giây một lần. Máy khách 6 giây không nghe thấy gì (Wi‑Fi chập chờn, trình duyệt tạm dừng tab, máy ngủ) thì tự kết nối lại, tối đa 8 lần, và về đúng ghế cũ. Trong lúc đó máy đánh thay ghế ấy. Chủ sân rớt mạng thì sân vẫn đóng như trước.
 
 ## Mã nguồn

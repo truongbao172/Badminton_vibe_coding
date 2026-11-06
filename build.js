@@ -6,8 +6,6 @@
 //                   nên mọi file dùng chung một phạm vi biến, như khi còn là một file. Từng file không chạy riêng được.
 // server.js gọi buildPage() mỗi lần tải trang (sửa xong chỉ cần F5).
 // Chạy `node build.js` để ghi ra dist/san-cau-so-7.html: bản một file, dùng cho Artifact hoặc mở thẳng trong trình duyệt.
-// Chạy `node build.js web` để ghi ra dist/web/: trang + Three.js + assets, là file tĩnh cho Cloudflare Workers
-// (wrangler.jsonc tự chạy lệnh này trước `wrangler dev` / `wrangler deploy`).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,7 +31,7 @@ export function buildPage() {
     .replace('<!-- @game -->\n', () => '<script>\n(() => {\n' + game + '})();\n</script>\n');
 }
 
-// Trang do máy chủ phục vụ (server.js hoặc Cloudflare): bật tab chơi qua mạng (SAN7_LAN),
+// Trang do server.js phục vụ: bật tab chơi qua mạng (SAN7_LAN),
 // Three.js lấy ở /three.min.js và /vendor/... nếu vendor/ có sẵn bản đó.
 export function serverPage() {
   let body = buildPage();
@@ -44,26 +42,9 @@ export function serverPage() {
     '<script>window.SAN7_LAN = true</script></head><body>' + body + '</body></html>';
 }
 
-// dist/web/: đúng các đường dẫn mà server.js phục vụ (/, /three.min.js, /vendor/*, /assets/*).
-function buildWeb() {
-  const out = path.join(DIR, 'dist', 'web');
-  fs.rmSync(out, { recursive: true, force: true });
-  fs.mkdirSync(path.join(out, 'vendor'), { recursive: true });
-  fs.writeFileSync(path.join(out, 'index.html'), serverPage());
-  if (vendored('three.min.js')) fs.copyFileSync(path.join(DIR, 'vendor', 'three.min.js'), path.join(out, 'three.min.js'));
-  for (const [, file] of ADDONS) if (vendored(file)) fs.copyFileSync(path.join(DIR, 'vendor', file), path.join(out, 'vendor', file));
-  // Chỉ chép các đuôi mà server.js cũng cho phép
-  const ok = /\.(gltf|bin|jpg|png|m4a)$/i;
-  fs.cpSync(path.join(DIR, 'assets'), path.join(out, 'assets'), { recursive: true, filter: f => fs.statSync(f).isDirectory() || ok.test(f) });
-  return out;
-}
-
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  if (process.argv[2] === 'web') { console.log('Đã ghi ' + path.relative(DIR, buildWeb()) + '/'); }
-  else {
-    const out = path.join(DIR, 'dist', 'san-cau-so-7.html');
-    fs.mkdirSync(path.dirname(out), { recursive: true });
-    fs.writeFileSync(out, buildPage());
-    console.log('Đã ghi ' + path.relative(DIR, out));
-  }
+  const out = path.join(DIR, 'dist', 'san-cau-so-7.html');
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, buildPage());
+  console.log('Đã ghi ' + path.relative(DIR, out));
 }
