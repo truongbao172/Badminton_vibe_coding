@@ -37,6 +37,15 @@ Mở tab **Chơi với người** trong menu. Tab này liệt kê 5 sân: sân n
 
 Nhân vật dùng model người thật trong bộ **Universal Base Characters** của [Quaternius](https://quaternius.com) (giấy phép CC0, xem `assets/characters/LICENSE.txt`). Bảng **Nhân vật** cho chọn dáng nam hoặc nữ. Áo, quần, tất được tô lên người theo màu bạn chọn, giày được dựng riêng.
 
+- **Siêu anh hùng:** các lựa chọn dưới đây đều là thiết kế riêng của game, không lấy theo nhân vật có bản quyền nào.
+  - **Thân hình cơ bắp:** vai, tay, ngực và đùi to ra.
+  - **Trang phục:** chọn **Áo quần** thường, hoặc một bộ đồ bó liền thân có hoa văn **Chữ V**, **Tia chớp**, **Sọc hông** hay **Ngôi sao**.
+    - Bộ đồ lấy màu ở hàng **Màu bộ đồ**.
+    - Hoa văn, găng tay, ủng và quần ngắn bên ngoài lấy **Màu phụ**.
+  - **Mặt nạ:** **Bịt mắt** hoặc **Trùm đầu** (che cả tóc, có hai mắt kính trắng).
+  - **Áo choàng:** bay ra sau khi chạy, phồng lên khi rơi xuống sau cú nhảy.
+  - **Da xanh lá, xanh dương, tím** và kiểu tóc **Dựng**.
+  - Trang không tải được model (bản Artifact) chỉ hiện được áo choàng.
 - Game vẫn tính tư thế bằng bộ khung đơn giản như trước (vung vợt, chạy, nhảy), rồi chép tư thế đó sang khung xương của model mỗi khung hình.
 - Model nằm trong `assets/characters/` (khoảng 3 MB) và do `server.js` phục vụ. Trang không có server, ví dụ bản Artifact trên claude.ai, không tải được model nên dùng nhân vật đơn giản như cũ.
 

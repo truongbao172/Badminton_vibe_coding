@@ -65,7 +65,9 @@ const cap = r => r.fmt === 'doi' ? 4 : 2;
 const count = r => r.seats.filter(Boolean).length;
 // Kiểu nhân vật người chơi gửi lên: chỉ nhận mã màu 24-bit, một kiểu tóc hợp lệ, và quần hoặc váy (mặc định quần).
 // Quần và váy có màu riêng; trang bản cũ không gửi màu váy thì dùng màu trắng.
-const HAIR = ['short', 'tail', 'band', 'bald'];
+const HAIR = ['short', 'tail', 'band', 'bald', 'spiky'];
+// Đồ siêu anh hùng: bộ đồ bó (hoặc áo quần thường), màu phụ, mặt nạ, áo choàng, thân hình cơ bắp
+const SUITS = ['none', 'v', 'bolt', 'side', 'star'], MASKS = ['none', 'eye', 'full'];
 // Vợt: 'plain' (một màu) hoặc 'custom' (Kumpoo K520 Pro / Yonex Astrox 100ZZ) với một trong các phiên bản màu.
 // Trang bản cũ gửi 'k520' thì coi như 'custom'.
 const RACKET_IDS = ['xanh', 'hong', 'vang', 'den', 'zznavy', 'zzred', 'zzva'];
@@ -76,7 +78,9 @@ function parseLook(raw) {
     return { shirt: o.shirt, shorts: o.shorts, skirt: c(o.skirt) ? o.skirt : 0xf2f2ee, skin: o.skin, hair: o.hair, racket: o.racket, hs: o.hs, bt: o.bt === 'skirt' ? 'skirt' : 'shorts',
       rk: o.rk === 'custom' || o.rk === 'k520' ? 'custom' : 'plain', rkv: RACKET_IDS.includes(o.rkv) ? o.rkv : 'xanh', str: c(o.str) ? o.str : 0xf4f4f2,
       hand: o.hand === 'L' ? 'L' : 'R', // tay cầm vợt: phải (mặc định) hoặc trái
-      body: o.body === 'f' ? 'f' : 'm' }; // dáng người: nam (mặc định) hoặc nữ
+      body: o.body === 'f' ? 'f' : 'm', // dáng người: nam (mặc định) hoặc nữ
+      suit: SUITS.includes(o.suit) ? o.suit : 'none', acc: c(o.acc) ? o.acc : 0xffb547, mask: MASKS.includes(o.mask) ? o.mask : 'none',
+      cape: o.cape === 'y' ? 'y' : 'n', build: o.build === 'b' ? 'b' : 'n' };
   } catch { return null; }
 }
 // Người đang mở trang: mỗi trình duyệt có một mã riêng (giữ nguyên khi tải lại trang) và hỏi /rooms vài giây một lần;
