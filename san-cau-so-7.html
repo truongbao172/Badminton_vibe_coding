@@ -1680,7 +1680,9 @@ function doJump(a) {
   if (a.y > 0 || a.vy > 0 || a.landT > 0.1 || a.fallT > 0) return;
   a.vy = JUMP_V * (0.72 + 0.28 * a.sta); a.sta = Math.max(0, a.sta - 0.12);
   if (a.armed) a.armT = Math.max(a.armT, 0.42);
-  play('jump');
+  const ev = { k: 'sfx', kind: 'jump' };
+  if (S.mode === 'host' && a === ath(me)) ev.g = me; // our own jump sounds at once, also on a late screen (PV)
+  emit(ev);
 }
 function moveAthlete(a, ix, iz, maxSp, dt, arrive) {
   let tx = ix * maxSp, tz = iz * maxSp;
@@ -1839,7 +1841,8 @@ function fxEvent(ev) {
     trailHot = tier >= 2 ? 1 : 0; shPop = 1;
     shake(P.shake);
     // (not for a LAN guest's hit: the host takes it in after the fact, and the guest has already drawn it at full speed)
-    if (P.stop && !reduceMotion && S.mode !== 'guest' && ev.g == null) stopT = Math.max(stopT, P.stop);
+    // (nor while the host plays guests over the network: every screen there shows the match at its own moment)
+    if (P.stop && !reduceMotion && S.mode !== 'guest' && ev.g == null && !PV.on) stopT = Math.max(stopT, P.stop);
   } else if (ev.kind === 'land') {
     spawnSparks(ev.x, 0.04, ev.z, 12, 1.3, DUST, { up: 1.4, life: 0.55, grav: 3 });
     shock(ev.x, 0.02, ev.z, 0.55, 0xdde6ee, 0.5);
@@ -1973,11 +1976,15 @@ function setFormat(fmt) {
 // Presentation events run locally and, on the LAN host, are mirrored to the guests.
 // tm: when it happened in the match (host clock); a guest plays it when its screen, a little behind, gets there.
 let evAt = null;
+// The host's own screen while it plays guests over the network: drawn as late as theirs (see pvFrame)
+const PV = { on: false, L: 0, ts: 0, buf: [], evq: [], patchFrom: 0, late: -1, shownA: null, prevTs: null, drawing: false,
+  shRaw: null, shKey: null, lerpTo: null, shOff: { x: 0, y: 0, z: 0 } };
 function emit(ev) {
-  handleEv(ev);
-  if (S.mode !== 'host') return;
-  const now = performance.now();
-  send({ t: 'ev', ...ev, tm: Math.round(evAt ?? (simWall > now - 100 ? simWall : now)) });
+  if (S.mode !== 'host') { handleEv(ev); return; }
+  const now = performance.now(), tm = Math.round(evAt ?? (simWall > now - 100 ? simWall : now));
+  // On the host's late screen it shows when that screen gets there, except what our own player did just now
+  if (PV.on && ev.g !== me) PV.evq.push({ t: tm, m: ev }); else handleEv(ev);
+  send({ t: 'ev', ...ev, tm });
 }
 function handleEv(ev) {
   if (ev.k === 'sfx') sfx(ev.kind);
@@ -1998,6 +2005,7 @@ function showShot(idx, type) {
 }
 function updateHUD() {
   if (S.mode === 'watch') { watchHUD(); return; }
+  if (PV.on && !PV.drawing) return; // the host's late screen shows the score as it was then (pvHud)
   const mt = team(me), o = 1 - mt;
   $('pP').textContent = S.score[mt]; $('pA').textContent = S.score[o];
   $('gP').textContent = S.games[mt]; $('gA').textContent = S.games[o];
@@ -2011,6 +2019,7 @@ function updateHUD() {
   $('metaR').textContent = `CHẠM ${S.rally}`;
 }
 function updateServeHint() {
+  if (PV.on && !PV.drawing) return;
   const el = $('serveHint');
   el.hidden = !(S.state === 'serve' && S.server === me && !S.paused);
   el.innerHTML = isTouch() ? 'Bạn giao cầu · giữ ĐÁNH: giao cao sâu · chạm ĐÁNH: giao ngắn' : `Bạn giao cầu · giữ <kbd>${key1('hit')}</kbd>: giao cao sâu · nhấn <kbd>${key1('hit')}</kbd>: giao ngắn`;
@@ -2107,6 +2116,7 @@ function finishHit(idx, type, from, vel, g) {
 // Predicted landing spot, shown to whichever team is about to receive the shuttle
 const RD = { vis: false, x: 0, z: 0, out: false, to: 0 };
 function refreshRing() {
+  if (PV.on && !PV.drawing) return;
   ring.visible = S.showMarker && RD.vis && RD.to === team(me);
   if (ring.visible) { ring.position.x = RD.x; ring.position.z = RD.z; ring.material.color.set(RD.out ? 0x8aa0a6 : 0xffb547); }
 }
@@ -2203,7 +2213,7 @@ function tryHits() {
     const hc = hitCenter(a);
     if (Math.hypot(p.x - hc.x, p.z - hc.z) > (isHuman(i) ? 1.1 : 0.95)) continue;
     // A LAN guest judges its own hits on its own screen (guestHit); the host only takes them in (takeGuestHit)
-    if (isHuman(i)) { if (S.mode === 'host' && i !== me) continue; if (a.armed) { const k = a.armed; a.armed = null; doHit(i, humanShot(k, i)); return; } continue; }
+    if (isHuman(i)) { if (S.mode === 'host' && (i !== me || PV.on)) continue; if (a.armed) { const k = a.armed; a.armed = null; doHit(i, humanShot(k, i)); return; } continue; }
     // A computer player hits if it is the responder, or covers for a computer partner that is out of position
     const r = S.resp[t];
     if (aiPick < 0 && r >= 0 && !ath(r).leave && (r === i || !isHuman(r))) aiPick = i;
@@ -2230,7 +2240,7 @@ function physicsStep(dt) {
 // (takeGuestHit). Wait only while one of them really could (at most 0.6 s); otherwise judge it at once.
 function touchDown(x, z) {
   const half = z > 0 ? 0 : 1, w = simWall;
-  if (S.mode === 'host' && S.state === 'rally' && !S.netFault && half !== S.lastTeam && members(half).some(i => isHuman(i) && i !== me && mayStillHit(i, w))) {
+  if (S.mode === 'host' && S.state === 'rally' && !S.netFault && half !== S.lastTeam && members(half).some(i => isHuman(i) && (i !== me || PV.on) && mayStillHit(i, w))) {
     pendLand = { x, z, half, w, until: performance.now() + 600 }; return;
   }
   landFx(x, z); landed(x, z);
@@ -2240,7 +2250,9 @@ function touchDown(x, z) {
 // the time its screen shows host time e.w the player is within a known circle. The shuttle is out of reach
 // unless, somewhere in the flight that screen hasn't shown yet, it passes hittable and within that circle.
 function mayStillHit(i, w) {
-  const r = remoteIn[i], s = r.seen, a = ath(i);
+  const r = remoteIn[i], a = ath(i);
+  // (our own late screen: how far it has got, with our own player as it is now)
+  const s = i === me ? { vt: PV.ts, x: a.x, z: a.z, vx: a.vx, vz: a.vz } : r.seen;
   if (!s) return r.vt <= w + 10;
   if (s.vt > w + 10) return false;
   for (let k = hostHist.length - 1; k >= 0 && hostHist[k].w > s.vt; k--) {
@@ -2256,7 +2268,7 @@ function landFx(x, z) { play('land'); emit({ k: 'fx', kind: 'land', x: r3(x), z:
 function checkLanding() {
   const q = pendLand;
   if (!q) return;
-  if (members(q.half).some(i => isHuman(i) && i !== me && mayStillHit(i, q.w)) && performance.now() <= q.until) return;
+  if (members(q.half).some(i => isHuman(i) && (i !== me || PV.on) && mayStillHit(i, q.w)) && performance.now() <= q.until) return;
   // Stamped with the landing moment: the guests' screens are already past it, so they show the point at once
   pendLand = null; evAt = q.w; landFx(q.x, q.z); landed(q.x, q.z); evAt = null;
 }
@@ -2478,12 +2490,12 @@ function action(kind, idx = me) {
     return;
   }
   if (kind === 'charge') {
-    if (serving && a.serveHold) { a.serveHold = false; launchServe('long'); return; }
+    if (serving && a.serveHold) { a.serveHold = false; serveAs(idx, 'long'); return; }
     if (a.holding && a.armed) a.armed = 'strong';
     return;
   }
   if (kind === 'release') {
-    if (serving && a.serveHold) launchServe('short');
+    if (serving && a.serveHold) serveAs(idx, 'short');
     a.serveHold = a.holding = false;
   }
 }
@@ -2953,6 +2965,9 @@ function onNet(m) {
     if (m.t === 'in') {
       const r = remoteIn[i], now = performance.now(); r.x = clamp(+m.x || 0, -1, 1); r.z = clamp(+m.z || 0, -1, 1); r.run = !!m.r;
       if (Number.isFinite(m.vt)) r.vt = +m.vt;
+      // Echoed back in the snapshots, so that guest can time the round trip; lg: how far behind its screen is
+      if (Number.isFinite(m.tm)) { r.ec = +m.tm; r.ecAt = now; }
+      if (Number.isFinite(m.lg)) r.lg = clamp(+m.lg, 0, 400);
       if (Number.isFinite(m.px) && Number.isFinite(m.pz)) {
         const vmax = RUN_SP * 1.2, L = r.buf[r.buf.length - 1];
         let t = clockIn(r.clk, +m.tm, now);
@@ -2989,7 +3004,7 @@ function syncHumans(prevNames = S.names) {
     const on = i === me || (i < S.n && !!S.roster[i]);
     if (on === S.human[i]) continue;
     // (a new connection, maybe a reloaded page: its clock and position reports start afresh)
-    S.human[i] = on; Object.assign(remoteIn[i], { x: 0, z: 0, run: false, pos: false, vt: 0, seen: null, clk: netClock(), buf: [], prevRt: null });
+    S.human[i] = on; Object.assign(remoteIn[i], { x: 0, z: 0, run: false, pos: false, vt: 0, seen: null, ec: 0, lg: null, clk: netClock(), buf: [], prevRt: null });
     const a = ath(i); a.armed = null; a.holding = a.serveHold = false; a.plan = null;
     if (live) emit({ k: 'toast', big: on ? `${S.names[i] || 'Người chơi'} vào sân` : `${prevNames[i] || 'Một người'} đã rời sân`, small: on ? '' : 'Máy đánh thay vị trí đó', dur: 1.6 });
     if (live && !on && S.state === 'serve' && S.server === i) S.timer = 1.1;
@@ -3006,18 +3021,28 @@ function snapshot() {
     rg: [RD.vis ? 1 : 0, r3(RD.x), r3(RD.z), RD.out ? 1 : 0, RD.to],
     // For a guest judging its own hits: last team to hit, serve or not, the receiver, net fault, hit count
     hx: [S.lastTeam ?? -1, S.isServe ? 1 : 0, S.receiver, S.netFault ? 1 : 0, S.hits],
-    hs: stopT > 0 ? 1 : 0 }; // hit-stop: the match is running at a quarter speed
+    hs: stopT > 0 ? 1 : 0, // hit-stop: the match is running at a quarter speed
+    // each guest's latest report time, plus how long it has waited here: that guest's round trip (rttIn)
+    ec: remoteIn.map(r => r.ec ? Math.round(r.ec + performance.now() - r.ecAt) : 0) };
+}
+// A buffer entry for drawing a snapshot later (a guest's snapshots, and the host's own while it draws late, PV)
+function bufEntry(m, t) {
+  const h = m.sh, hx = m.hx || [-1, 0, 0, 0, 0];
+  return { t, m, still: !!m.pa, hs: !!m.hs, s: m.s, a: m.a, lt: hx[0], is: !!hx[1], rc: hx[2] | 0, nf: !!hx[3], hn: hx[4] | 0,
+    sh: { p: { x: h[0], y: h[1], z: h[2] }, v: { x: h[3], y: h[4], z: h[5] }, mode: MODES[h[6]] || 'rest' } };
 }
 function applySnap(m) {
   if (m.n !== S.n) setFormat(m.n === 4 ? 'doi' : 'don');
   if (!$('lobby').hidden && m.s !== 'menu') { $('lobby').hidden = true; toast('Vào trận', `Sân ${S.court + 1} · ${team(me) ? 'bạn đứng sân xa' : 'bạn đứng sân gần'}`, 1.6); }
   S.human = m.hu.map(Boolean);
-  const now = performance.now(), B = NET.buf, h = m.sh, hx = m.hx || [-1, 0, 0, 0, 0];
+  const now = performance.now(), B = NET.buf;
   let t = clockIn(NET.clk, m.tm, now);
   if (B.length && t < B[B.length - 1].t) t = B[B.length - 1].t;
-  B.push({ t, m, still: !!m.pa, hs: !!m.hs, s: m.s, a: m.a, lt: hx[0], is: !!hx[1], rc: hx[2] | 0, nf: !!hx[3], hn: hx[4] | 0,
-    sh: { p: { x: h[0], y: h[1], z: h[2] }, v: { x: h[3], y: h[4], z: h[5] }, mode: MODES[h[6]] || 'rest' } });
+  B.push(bufEntry(m, t));
   while (B.length > 2 && B[1].t < now - 1500) B.shift();
+  // Round trip to the host and back (its echo of our latest report)
+  const ec = Array.isArray(m.ec) ? +m.ec[me] : 0, rt = now - ec;
+  if (ec > 0 && rt > 0 && rt < 3000) { NET.rtt.push(rt); if (NET.rtt.length > 120) NET.rtt.shift(); }
   // The host has taken our own hit: the snapshots from this one on carry it
   if (NET.hit && NET.hit.ok && NET.hit.until === null) NET.hit.until = t;
   if (m.pa !== S.paused) applyPaused(m.pa);
@@ -3037,10 +3062,10 @@ function queueEv(m) {
   if (!NET.buf.length || c.off === null || !Number.isFinite(m.tm)) { handleEv(m); return; }
   NET.evq.push({ t: Math.min(performance.now(), m.tm + c.off), m });
 }
-function playDueEvs(rt) {
-  const Q = NET.evq;
+function playDueEvs(rt, st = NET) {
+  const Q = st.evq;
   if (!Q.length || Q.every(e => e.t > rt)) return;
-  NET.evq = Q.filter(e => e.t > rt);
+  st.evq = Q.filter(e => e.t > rt);
   for (const e of Q) {
     if (e.t > rt) continue;
     // Long overdue (the tab was in the background): skip the sounds and sparks, keep the messages
@@ -3074,13 +3099,13 @@ function clockTick(c, dt, gap = 20, hi = 200) {
   const s = c.late.slice().sort((x, y) => x - y), want = clamp(s[Math.floor(s.length * 0.9)] + gap, 30, hi);
   c.D += clamp(want - c.D, -dt * 40, dt * 80);
 }
-const NET = { clk: netClock(), buf: [], evq: [], hit: null, hid: 0, shownA: null, shRaw: null, shKey: null, shOff: { x: 0, y: 0, z: 0 } };
+const NET = { clk: netClock(), buf: [], evq: [], rtt: [], hit: null, hid: 0, shownA: null, shRaw: null, shKey: null, shOff: { x: 0, y: 0, z: 0 } };
 function resetNet() {
-  Object.assign(NET, { clk: netClock(), buf: [], evq: [], hit: null, shownA: null, shRaw: null, shKey: null, lerpTo: null, prevRt: null });
+  Object.assign(NET, { clk: netClock(), buf: [], evq: [], rtt: [], hit: null, shownA: null, shRaw: null, shKey: null, lerpTo: null, prevRt: null });
   NET.shOff.x = NET.shOff.y = NET.shOff.z = 0; jumpHeard = 0;
   hostHist.length = 0; pendLand = null; shVis.x = shVis.y = shVis.z = 0;
   for (const a of ATH) { a.nRaw = null; a.predT = 0; }
-  for (const r of remoteIn) Object.assign(r, { clk: netClock(), buf: [], vt: 0, seen: null, pos: false });
+  for (const r of remoteIn) Object.assign(r, { clk: netClock(), buf: [], vt: 0, seen: null, ec: 0, lg: null, pos: false });
 }
 // The report at or before time rt, and the one after it (null when rt is past the newest)
 function netPair(buf, rt) {
@@ -3140,18 +3165,19 @@ function hitFlight(H, rt) {
   const f = flyFor(H.p, H.v, clamp((rt - H.t) / 1000, 0, 3));
   return f.p.y < 0.03 ? { p: { ...f.p, y: 0.03 }, v: STILL, mode: 'rest', key: 'me' } : { p: f.p, v: f.v, mode: 'fly', key: 'me' };
 }
-function showShuttle(q, dt, dtR) {
-  const o = NET.shOff, r = NET.shRaw;
+function showShuttle(q, dt, dtR, st = NET) {
+  const o = st.shOff, r = st.shRaw;
   if (r && q.mode !== 'held' && r.mode !== 'held') {
     // Where last frame's shuttle would be now by its own flight; any gap to that is closed over a few frames.
     // Except a hit by someone else that was drawn on time (between the snapshots before and after it,
     // netShuttleAt): that turn is real and shown as it is. A hit that arrived late slides over instead.
-    const newHit = typeof q.key === 'number' && q.key !== NET.shKey && q.key === NET.lerpTo;
+    // (a hit the host took in after its late screen had passed that moment, PV.late, slides over too)
+    const newHit = typeof q.key === 'number' && q.key !== st.shKey && q.key === st.lerpTo && q.key !== st.late;
     const e = r.mode === 'fly' ? flyFor(r.p, r.v, dtR).p : r.p, j = Math.hypot(q.p.x - e.x, q.p.y - e.y, q.p.z - e.z);
     if (j > 2.5) o.x = o.y = o.z = 0;
     else if (j > 0.02 && !newHit) { o.x += e.x - q.p.x; o.y += e.y - q.p.y; o.z += e.z - q.p.z; }
   } else o.x = o.y = o.z = 0;
-  NET.shRaw = q; NET.shKey = q.key; NET.lerpTo = q.to ?? null;
+  st.shRaw = q; st.shKey = q.key; st.lerpTo = q.to ?? null;
   const f = Math.exp(-dt * 12); o.x *= f; o.y *= f; o.z *= f;
   shuttle.p = { x: q.p.x + o.x, y: Math.max(0.03, q.p.y + o.y), z: q.p.z + o.z }; shuttle.v = q.v; shuttle.mode = q.mode;
 }
@@ -3245,6 +3271,9 @@ function guestTick(dt) {
   // Report stick and position to the host: every frame during a rally (the host draws us from these, and waits
   // for vt, how far this screen has got, before giving a point on our side), otherwise only when they change
   const msg = { t: 'in', x: +input.x.toFixed(2), z: +input.z.toFixed(2), r: input.run ? 1 : 0, tm: Math.round(now), vt };
+  // How far behind the host's present this screen draws: the drawing delay plus the trip from the host (half the
+  // quickest round trip). The host draws its own screen that late too (PV), so both show the same moment together.
+  if (NET.rtt.length) msg.lg = Math.round(NET.clk.D + Math.min(...NET.rtt) / 2);
   if (playing) Object.assign(msg, { px: r3(a.x), pz: r3(a.z), vx: r3(a.vx), vz: r3(a.vz) });
   const k = [msg.x, msg.z, msg.r, msg.px, msg.pz].join(',');
   if ((playing || k !== lastIn) && now - lastInAt >= 14 && !(ws && ws.bufferedAmount > 4096)) { lastIn = k; lastInAt = now; send(msg); }
@@ -3274,23 +3303,143 @@ function takeGuestHit(i, m) {
   if (Math.hypot(p.x - lerp(e0.p.x, e1.p.x, u), p.y - lerp(e0.p.y, e1.p.y, u), p.z - lerp(e0.p.z, e1.p.z, u)) > 0.9) return false;
   const hc = hitCenter({ x: +m.ax || 0, z: +m.az || 0, side: a.side, hand: a.hand });
   if (Math.hypot(p.x - hc.x, p.z - hc.z) > 1.5) return false;
-  // Back to the moment of the hit...
   const shown = { x: shuttle.p.x + shVis.x, y: shuttle.p.y + shVis.y, z: shuttle.p.z + shVis.z };
-  const st = lerp(e0.st, e1.st, u), back = clamp(S.simT - st, 0, 0.7);
-  H.length = j + 1; pendLand = null; a.armed = null;
-  evAt = at; finishHit(i, m.k, p, v, i);
-  // ...and forward to now; the computer players start as late as the hit reached us
-  for (const k of members(1 - t)) { const b = ath(k); if (!isHuman(k) && b.delay > 0) b.delay = Math.max(0, b.delay - back); }
-  for (let s = 0; s + DT <= back && shuttle.mode === 'fly'; s += DT) { evAt = simWall = at + (s + DT) * 1000; physicsStep(DT); tryHits(); recordHist(simWall, st + s + DT); }
-  S.flightT = back; simWall = now; evAt = null;
+  a.armed = null;
+  replayFrom(at, j, lerp(e0.st, e1.st, u), () => finishHit(i, m.k, p, v, i));
+  // (a host drawing in the present slides its shuttle over; a late one, PV, gets the new course in its buffer)
   const dx = shown.x - shuttle.p.x, dy = shown.y - shuttle.p.y, dz = shown.z - shuttle.p.z;
-  if (Math.hypot(dx, dy, dz) < 4) Object.assign(shVis, { x: dx, y: dy, z: dz }); else shVis.x = shVis.y = shVis.z = 0;
+  if (!PV.on && Math.hypot(dx, dy, dz) < 4) Object.assign(shVis, { x: dx, y: dy, z: dz }); else shVis.x = shVis.y = shVis.z = 0;
+  return true;
+}
+// Put the match back to host time `at` (history entry j, match time st), do `apply` there (a hit, a serve) and
+// play it forward to now; the computer players start as late as the news reached us. The host's late screen (PV)
+// gets the new course from `at` on; if it had already shown past `at`, its shuttle slides over.
+function replayFrom(at, j, st, apply) {
+  const now = performance.now(), back = clamp(S.simT - st, 0, 0.7);
+  hostHist.length = j + 1; pendLand = null; PV.patchFrom = at;
+  evAt = simWall = at; apply();
+  for (const k of members(1 - S.lastTeam)) { const b = ath(k); if (!isHuman(k) && b.delay > 0) b.delay = Math.max(0, b.delay - back); }
+  for (let s = 0; s + DT <= back && shuttle.mode === 'fly'; s += DT) {
+    evAt = simWall = at + (s + DT) * 1000; physicsStep(DT); tryHits(); recordHist(simWall, st + s + DT); pvPatch(simWall);
+  }
+  S.flightT = back; simWall = now; evAt = null; pvPatch(Infinity);
+  if (PV.on && at < PV.ts - 1) PV.late = S.hits;
+}
+// A human's serve. Our own, while the host draws late, goes off at the moment that screen shows
+function serveAs(idx, type) {
+  const H = hostHist, at = PV.ts;
+  let j = H.length - 1;
+  while (j > 0 && H[j].w > at) j--;
+  if (!PV.on || idx !== me || !H.length || H[j].w > at || S.simT - H[j].st > 0.7) { launchServe(type); return; }
+  replayFrom(at, j, H[j].st, () => launchServe(type));
+}
+
+/* The host's own screen while it plays guests over the network. A guest sees the match a little late (its drawing
+   delay plus the trip from here), so if the host drew the present, it would see every landing, every point and every
+   computer player's shot before the guest does. Instead the host draws the shuttle, the computer players, the score
+   and the sounds just as late as the guests (PV.L, from what they report), from its own snapshots kept per frame.
+   Its own player stays in the present, and its own hits are judged on that late screen and put back in time, the
+   same way as a guest's (replayFrom). So the same moment shows on every screen at once. */
+function pvEntry(t, a) {
+  const m = snapshot(); m.sc = [...m.sc]; m.g = [...m.g]; // (copies: the snapshot holds the live arrays)
+  if (a) m.a = a;
+  return bufEntry(m, t);
+}
+function pvRecord() {
+  if (!PV.on) return;
+  const B = PV.buf, L = B[B.length - 1];
+  if (L && simWall - L.t > 100) B.push({ ...L, t: simWall - 1, still: true }); // paused meanwhile: hold still
+  B.push(pvEntry(simWall));
+  while (B.length > 2 && B[1].t < simWall - 1500) B.shift();
+}
+// After a replay: the kept snapshots from `at` up to `upto` take the new course (the players stay as they were)
+function pvPatch(upto) {
+  if (!PV.on) return;
+  const B = PV.buf;
+  for (let k = B.length - 1; k >= 0 && B[k].t > PV.patchFrom; k--) if (B[k].t <= upto) B[k] = pvEntry(B[k].t, B[k].a);
+  PV.patchFrom = Math.max(PV.patchFrom, Math.min(upto, performance.now()));
+}
+// Score, serve hint and landing ring as that screen shows them
+function pvHud(m) {
+  const keep = { state: S.state, score: S.score, games: S.games, server: S.server, gameNo: S.gameNo, rally: S.rally }, rd = { ...RD };
+  Object.assign(S, { state: m.s, score: m.sc, games: m.g, server: m.sv, gameNo: m.gn, rally: m.ra });
+  Object.assign(RD, { vis: !!m.rg[0], x: m.rg[1], z: m.rg[2], out: !!m.rg[3], to: m.rg[4] });
+  PV.drawing = true;
+  refreshRing();
+  const k = [m.sc, m.g, m.sv, m.gn, m.ra, m.s, S.paused, m.n].join('|');
+  if (k !== hudKey) { hudKey = k; updateHUD(); updateServeHint(); }
+  PV.drawing = false;
+  Object.assign(S, keep); Object.assign(RD, rd);
+}
+// Our own hit, judged on the late screen: the shuttle as it shows, our own player as it is now
+function pvOwnHit(A, B, ts) {
+  const a = ath(me);
+  if (!a.armed) return false;
+  const q = netShuttleAt(A, B, ts);
+  if (!ownHitReady(A, q, a)) return false;
+  const keep = { p: shuttle.p, v: shuttle.v }, kind = a.armed;
+  shuttle.p = { ...q.p }; shuttle.v = { ...q.v }; // humanShot and aimShot read the shuttle
+  const type = humanShot(kind, me), s = aimShot(me, type);
+  shuttle.p = keep.p; shuttle.v = keep.v;
+  return takeGuestHit(me, { k: type, at: ts, p: [s.from.x, s.from.y, s.from.z], v: [s.vel.x, s.vel.y, s.vel.z], ax: a.x, az: a.z });
+}
+function pvStop() {
+  PV.on = false;
+  const Q = PV.evq; PV.evq = [];
+  for (const e of Q) if (e.m.k !== 'sfx' && e.m.k !== 'fx' && e.m.k !== 'shot') handleEv(e.m);
+  PV.buf.length = 0; PV.shownA = PV.prevTs = PV.shRaw = null; PV.late = -1;
+  hudKey = ''; updateHUD(); updateServeHint(); refreshRing();
+}
+// Each frame on the host: draw late if there are guests (true), or leave it to syncVisuals (false)
+function pvFrame(dt) {
+  if (S.mode !== 'host') { if (PV.on) pvStop(); return false; }
+  const guests = [0, 1, 2, 3].filter(i => i !== me && i < S.n && isHuman(i));
+  const live = S.state === 'serve' || S.state === 'rally' || S.state === 'point';
+  if (!PV.on) {
+    if (!guests.length || !live) return false;
+    PV.on = true; PV.late = -1; PV.shownA = PV.prevTs = PV.shRaw = null;
+    return false; // (its first snapshot is kept next frame)
+  }
+  // As late as the latest guest screen, changing slowly so that drawn time never jumps
+  const lag = guests.map(i => remoteIn[i].lg).filter(Number.isFinite);
+  const want = guests.length ? clamp(lag.length ? Math.max(...lag) : 150, 40, 300) : 0;
+  PV.L += clamp(want - PV.L, -dt * 40, dt * 80);
+  const B = PV.buf, ts = last - PV.L;
+  if ((!guests.length && PV.L < 2) || (!live && (!B.length || ts >= B[B.length - 1].t))) { pvStop(); return false; }
+  if (!B.length) return false;
+  const dtR = PV.prevTs == null ? dt : clamp((ts - PV.prevTs) / 1000, 0, 0.1);
+  PV.prevTs = PV.ts = ts;
+  let [A, Bn] = netPair(B, ts);
+  if (pvOwnHit(A, Bn, ts)) [A, Bn] = netPair(B, ts);
+  if (A !== PV.shownA) { PV.shownA = A; pvHud(A.m); }
+  playDueEvs(ts, PV);
+  // The computer players as they were then (the match itself keeps their real state, put back after drawing)
+  const kept = [];
+  for (let i = 0; i < S.n; i++) {
+    const b = ath(i), d = A.a[i], e = Bn && Bn.a[i];
+    if (isHuman(i) || !d) continue;
+    if (b.swingT >= 0) { b.swingT += dt; if (b.armed && b.swingT > SW_W) b.swingT = SW_W; if (b.swingT >= SW_END) b.swingT = -1; }
+    kept.push([b, { x: b.x, z: b.z, vx: b.vx, vz: b.vz, y: b.y, vy: b.vy, swingT: b.swingT, swingK: b.swingK, armed: b.armed, sta: b.sta, run: b.run, fallT: b.fallT, fdx: b.fdx, fdz: b.fdz }]);
+    const q = between(A.t, d, Bn ? Bn.t : 0, e, ts, A.still ? 0 : 0.05), s = A.still ? 0 : clamp((ts - A.t) / 1000, 0, 0.1);
+    Object.assign(b, { x: q[0], z: q[1], vx: q[2], vz: q[3], y: d[5] > 0 || d[6] > 0 ? Math.max(0, d[5] + d[6] * s - 0.5 * G * s * s) : 0, vy: d[6],
+      swingT: d[4] >= 0 ? d[4] + s : -1, swingK: SWK[d[7]] || 'over', armed: d[8] ? 'strong' : null, sta: d[9], run: !!d[10], fallT: d[11] || 0, fdx: d[12] || 0, fdz: d[13] || 0 });
+  }
+  // The shuttle as it was then; held by a human server, it stays in that player's hand as it is now
+  let q = netShuttleAt(A, Bn, ts);
+  if (q.mode === 'held' && shuttle.mode === 'held' && isHuman(S.server)) q = { p: { ...shuttle.p }, v: STILL, mode: 'held', key: q.key };
+  const sim = { p: shuttle.p, v: shuttle.v, mode: shuttle.mode };
+  showShuttle(q, dt, dtR, PV);
+  shVis.x = shVis.y = shVis.z = 0;
+  syncVisuals(dt);
+  shuttle.p = sim.p; shuttle.v = sim.v; shuttle.mode = sim.mode;
+  for (const [b, k] of kept) Object.assign(b, k);
   return true;
 }
 // F3 meter: how far behind the network pictures are drawn
 function netInfo() {
   if (S.mode === 'guest' && NET.buf.length) return ` · mạng: vẽ trễ ${Math.round(NET.clk.D)} ms`;
   if (S.mode !== 'host') return '';
+  if (PV.on) return ` · mạng: chủ sân vẽ trễ ${Math.round(PV.L)} ms cho khớp với khách`;
   const g = remoteIn.filter((r, i) => i !== me && i < S.n && isHuman(i) && r.buf.length).map(r => Math.round(r.clk.D));
   return g.length ? ` · mạng: khách vẽ trễ ${g.join('/')} ms` : '';
 }
@@ -3562,6 +3711,7 @@ function update(dt) {
   S.simT += dt; recordHist(simWall, S.simT);
   checkLanding();
   if (S.state === 'point') { S.timer -= dt; if (S.timer <= 0) afterPoint(); }
+  pvRecord();
 }
 function syncVisuals(dt) {
   for (let i = 0; i < S.n; i++) { animateAthlete(ath(i), dt, i); driveModel(ath(i)); }
@@ -3627,7 +3777,7 @@ function frame(now) {
   if ((roomsT -= dt) <= 0) { roomsT = 2; refreshRooms(); }
   const st = ath(me).sta;
   if (Math.abs(st - shownSta) > 0.004) { shownSta = st; $('staBar').style.transform = `scaleX(${st})`; $('sta').classList.toggle('low', st < 0.3); }
-  syncVisuals(S.paused ? 0 : simDt);
+  if (!pvFrame(S.paused ? 0 : simDt)) syncVisuals(S.paused ? 0 : simDt);
   fxTick(S.paused ? 0 : dt);
   updateGhosts(dt);
   const shaking = shakeOn();
