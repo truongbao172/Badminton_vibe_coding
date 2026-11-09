@@ -67,11 +67,16 @@ function handleEv(ev) {
 }
 const play = kind => emit({ k: 'sfx', kind });
 
-let toastT = 0, shotT = 0;
-function toast(big, small, dur = 1.5) { $('toast').innerHTML = big + (small ? `<small>${small}</small>` : ''); $('toast').classList.add('show'); toastT = dur; }
+// Timed by the wall clock, not the frame loop: on phones a frame loop that stalls or throttles must not leave a message up
+let toastTimer = 0, shotTimer = 0;
+function flash(id, html, dur) {
+  const el = $(id); el.innerHTML = html; el.classList.add('show');
+  return setTimeout(() => el.classList.remove('show'), dur * 1000);
+}
+function toast(big, small, dur = 1.5) { clearTimeout(toastTimer); toastTimer = flash('toast', big + (small ? `<small>${small}</small>` : ''), dur); }
 function showShot(idx, type) {
-  $('shot').innerHTML = `<i style="background:var(${team(idx) ? '--cpu' : '--you'})"></i>${nameOf(idx)} · ${SHOTS[type].name}`;
-  $('shot').classList.add('show'); shotT = 1.1;
+  clearTimeout(shotTimer);
+  shotTimer = flash('shot', `<i style="background:var(${team(idx) ? '--cpu' : '--you'})"></i>${nameOf(idx)} · ${SHOTS[type].name}`, 1.1);
 }
 function updateHUD() {
   if (S.mode === 'watch') { watchHUD(); return; }

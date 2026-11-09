@@ -54,14 +54,15 @@ button:focus-visible,.seg input:focus-visible+label,.check input:focus-visible{o
 
 #toast{position:absolute;left:50%;top:30%;transform:translate(-50%,-40%);width:min(90vw,640px);text-align:center;
   font-family:var(--display);font-weight:700;font-size:clamp(24px,5.2vw,42px);letter-spacing:.03em;line-height:1.1;text-wrap:balance;
-  text-shadow:0 2px 18px rgba(0,0,0,.65);opacity:0;transition:opacity .2s,transform .3s}
-#toast.show{opacity:1;transform:translate(-50%,-50%)}
+  text-shadow:0 2px 18px rgba(0,0,0,.65);opacity:0;visibility:hidden;transition:opacity .2s,transform .3s,visibility 0s .3s}
+/* Hidden for real once faded (visibility), not only at opacity 0: a message once stayed on screen on an iPhone */
+#toast.show{opacity:1;visibility:visible;transform:translate(-50%,-50%);transition:opacity .2s,transform .3s}
 #toast small{display:block;font-family:var(--body);font-weight:500;font-size:15px;letter-spacing:0;color:var(--ink);opacity:.8;margin-top:8px}
 
 .bottom{margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:10px}
 #shot{font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:.1em;text-transform:uppercase;padding:5px 12px;border-radius:999px;
-  background:var(--panel);border:1px solid var(--edge);opacity:0;transition:opacity .2s}
-#shot.show{opacity:1}
+  background:var(--panel);border:1px solid var(--edge);opacity:0;visibility:hidden;transition:opacity .2s,visibility 0s .2s}
+#shot.show{opacity:1;visibility:visible;transition:opacity .2s}
 #shot i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:8px;vertical-align:1px}
 #hint{font-size:13px;color:var(--muted);text-align:center;text-wrap:balance;max-width:640px}
 #hint kbd,.keys kbd{font-family:var(--display);font-size:12px;color:var(--ink);border:1px solid var(--edge);border-bottom-width:2px;border-radius:5px;padding:1px 6px;background:rgba(255,255,255,.05);white-space:nowrap}

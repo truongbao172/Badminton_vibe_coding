@@ -142,8 +142,6 @@ function frame(now) {
   if (S.mode === 'host' && S.state !== 'menu' && now - lastSum > 100) { lastSum = now; send(summary()); }
   const credit = (overlayOpen() || !$('pause').hidden) && !$('custom').classList.contains('open');
   if (credit === $('credit').hidden) $('credit').hidden = !credit;
-  if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('show'); }
-  if (shotT > 0) { shotT -= dt; if (shotT <= 0) $('shot').classList.remove('show'); }
   updatePower(dt);
   punTick(dt);
   if ((roomsT -= dt) <= 0) { roomsT = 2; refreshRooms(); }
