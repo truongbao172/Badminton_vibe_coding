@@ -261,7 +261,7 @@ function cleanLook(o) {
     ? { shirt: o.shirt, shorts: o.shorts, skirt: c(o.skirt) ? o.skirt : SKIRT_DEF, skin: o.skin, hair: o.hair, racket: o.racket, hs: o.hs, bt: o.bt === 'skirt' ? 'skirt' : 'shorts',
         // 'k520' is what this switch was called before it became 'custom'
         rk: o.rk === 'custom' || o.rk === 'k520' ? 'custom' : 'plain', rkv: RACKET_IDS.includes(o.rkv) ? o.rkv : 'xanh', str: c(o.str) ? o.str : STR_DEF,
-        hand: o.hand === 'L' ? 'L' : 'R', body: o.body === 'f' ? 'f' : 'm',
+        hand: o.hand === 'L' ? 'L' : 'R', body: o.body === 'f' || isSkin(o.body) ? o.body : 'm',
         suit: SUITS.includes(o.suit) ? o.suit : 'none', acc: c(o.acc) ? o.acc : ACC_DEF, mask: MASKS.includes(o.mask) ? o.mask : 'none',
         cape: o.cape === 'y' ? 'y' : 'n', build: o.build === 'b' ? 'b' : 'n' } : null;
 }

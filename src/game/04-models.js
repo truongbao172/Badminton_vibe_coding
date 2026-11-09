@@ -4,6 +4,10 @@
 // hidden. If the models cannot load (no server, e.g. the claude.ai artifact) the simple figure stays.
 const CHAR_URL = 'assets/characters/';
 const CHAR = { ready: false, kinds: {}, hair: {} };
+// Bodies that come with their own outfit, shown as textured (no painted kit, hair or shoes). Each is a glTF
+// made by tools/xnalara-to-gltf.js with Quaternius bone names; look.body is the key.
+const SKIN_BODIES = { gwen: { file: 'gwen.gltf', label: 'Spider-Gwen' } };
+const isSkin = body => Object.hasOwn(SKIN_BODIES, body);
 const FIGS = new Set();
 // Model bone ← joint of the simple skeleton. Bones not listed keep their own rest rotation.
 const BONE_SRC = {
@@ -65,8 +69,11 @@ const linColor = hexc => new THREE.Color(hexc).convertSRGBToLinear();
 function loadCharacters() {
   if (!THREE.GLTFLoader || !THREE.SkeletonUtils) return;
   const loader = new THREE.GLTFLoader(), get = name => new Promise((ok, fail) => loader.load(CHAR_URL + name, ok, undefined, fail));
-  Promise.all([get('male.gltf'), get('female.gltf'), ...Object.values(HAIR_MODEL).map(n => get(`hair_${n}.gltf`))]).then(([m, f, ...hair]) => {
+  // A skin body that fails to load is left out (its players get the female body), the others still load
+  const skins = Object.entries(SKIN_BODIES).map(([id, b]) => get(b.file).then(g => [id, g], e => { console.warn(`Không tải được model ${b.label}.`, e); return null; }));
+  Promise.all([get('male.gltf'), get('female.gltf'), Promise.all(skins), ...Object.values(HAIR_MODEL).map(n => get(`hair_${n}.gltf`))]).then(([m, f, sk, ...hair]) => {
     CHAR.kinds.m = prepareKind(m.scene); CHAR.kinds.f = prepareKind(f.scene);
+    for (const s of sk) if (s) CHAR.kinds[s[0]] = prepareKind(s[1].scene);
     Object.values(HAIR_MODEL).forEach((n, i) => { CHAR.hair[n] = hair[i].scene; });
     CHAR.ready = true;
     for (const f of FIGS) applyLook(f, f.look || lookOfFig(f));
@@ -107,6 +114,8 @@ function prepareKind(src) {
   const ax = n => Math.abs(bone(n).getWorldPosition(_v1).x);
   let eyes = null, body = null;
   src.traverse(o => { if (o.isMesh && /Eyes/i.test(o.material.name)) eyes = o; if (o.isMesh && /Superhero/i.test(o.material.name)) body = o; });
+  const kind = { src, s, rest, pelvisOff, headInv, headPos, footInv, shoes: null, spiky: null, hero: null };
+  if (!eyes || !body) return kind; // a skin body: it wears its own outfit, no superhero kit
   eyes.geometry.computeBoundingBox();
   const eb = eyes.geometry.boundingBox, neckY = bone('neck_01').getWorldPosition(_v1).y;
   const arm = new THREE.Vector4(ax('upperarm_r'), ax('lowerarm_r'), ax('hand_r'), bone('upperarm_r').getWorldPosition(_v1).y);
@@ -116,5 +125,6 @@ function prepareKind(src) {
   for (let i = 0; i < bp.count; i++) if (Math.abs(bp.getX(i)) < 0.05 && Math.abs(bp.getY(i) - topY) < 0.02) back = Math.min(back, bp.getZ(i));
   // In the torso joint's frame (the figure faces -z, so the back is +z)
   const capeTop = new THREE.Vector3(0, topY * s - (P0 + 0.06), -back * s + 0.012);
-  return { src, s, rest, pelvisOff, headInv, headPos, footInv, shoes: null, spiky: null, hero: { arm, eye, capeTop, capeHW: arm.x * s * 0.72 } };
+  kind.hero = { arm, eye, capeTop, capeHW: arm.x * s * 0.72 };
+  return kind;
 }

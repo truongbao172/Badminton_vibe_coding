@@ -48,6 +48,8 @@ Nhân vật dùng model người thật trong bộ **Universal Base Characters**
   - **Áo choàng:** bay ra sau khi chạy, phồng lên khi rơi xuống sau cú nhảy.
   - **Da xanh lá, xanh dương, tím** và kiểu tóc **Dựng**.
   - Trang không tải được model (bản Artifact) chỉ hiện được áo choàng.
+- **Model có sẵn trang phục:** ở hàng **Dáng người** còn có **Spider-Gwen**. Model này giữ nguyên texture gốc nên các hàng áo, quần, da, tóc, mặt nạ, áo choàng được ẩn đi; vẫn chọn được tay cầm vợt và vợt. Model là bản fan-made "Spider Gwen (stylized version)" cho XNALara (bcbedford). Nhân vật thuộc bản quyền Marvel và model không kèm giấy phép, nên chỉ nên dùng nội bộ.
+  - **Thêm model XNALara khác:** chép `tools/skins/gwen.json` thành file mới, sửa `name`, `out`, `texture` và bảng `bones` (tên xương XNALara → tên xương Quaternius; tay/chân trái là phía +x khi model nhìn về +z). Sau đó chạy `node tools/xnalara-to-gltf.js tools/skins/<tên>.json "<thư mục>/generic_Item.mesh.ascii"`, đổi texture sang JPG (`sips -s format jpeg <ảnh>.png --out assets/characters/tex/<tên>_base.jpg`), rồi thêm khoá mới vào `SKIN_BODIES` (`src/game/04-models.js`) và `BODIES` (`lobby.js`).
 - Game vẫn tính tư thế bằng bộ khung đơn giản như trước (vung vợt, chạy, nhảy), rồi chép tư thế đó sang khung xương của model mỗi khung hình.
 - Model nằm trong `assets/characters/` (khoảng 3 MB) và do `server.js` phục vụ. Trang không có server, ví dụ bản Artifact trên claude.ai, không tải được model nên dùng nhân vật đơn giản như cũ.
 - **Tiếng hô khi nhảy đập:** mỗi cú nhảy đập (của người hay của máy) phát câu "Sao mà đỡ được!" (`assets/sfx/sao-ma-do-duoc.m4a`), trên mọi máy trong sân, đúng lúc cú đập hiện trên màn hình máy đó. Nút tắt tiếng cũng tắt câu này. Trang không có server thì không có tiếng hô.

@@ -15,6 +15,8 @@ const SUITS = ['none', 'v', 'bolt', 'side', 'star'], MASKS = ['none', 'eye', 'fu
 // Vợt: 'plain' (một màu) hoặc 'custom' (Kumpoo K520 Pro / Yonex Astrox 100ZZ) với một trong các phiên bản màu.
 // Trang bản cũ gửi 'k520' thì coi như 'custom'.
 const RACKET_IDS = ['xanh', 'hong', 'vang', 'den', 'zznavy', 'zzred', 'zzva'];
+// Dáng người: 'm', 'f' và các khoá của SKIN_BODIES trong src/game/04-models.js
+const BODIES = ['m', 'f', 'gwen'];
 function parseLook(raw) {
   try {
     const o = JSON.parse(raw || 'null'), c = v => Number.isInteger(v) && v >= 0 && v <= 0xffffff;
@@ -22,7 +24,7 @@ function parseLook(raw) {
     return { shirt: o.shirt, shorts: o.shorts, skirt: c(o.skirt) ? o.skirt : 0xf2f2ee, skin: o.skin, hair: o.hair, racket: o.racket, hs: o.hs, bt: o.bt === 'skirt' ? 'skirt' : 'shorts',
       rk: o.rk === 'custom' || o.rk === 'k520' ? 'custom' : 'plain', rkv: RACKET_IDS.includes(o.rkv) ? o.rkv : 'xanh', str: c(o.str) ? o.str : 0xf4f4f2,
       hand: o.hand === 'L' ? 'L' : 'R', // tay cầm vợt: phải (mặc định) hoặc trái
-      body: o.body === 'f' ? 'f' : 'm', // dáng người: nam (mặc định) hoặc nữ
+      body: BODIES.includes(o.body) ? o.body : 'm', // dáng người: nam (mặc định), nữ, hoặc model có sẵn trang phục (SKIN_BODIES)
       suit: SUITS.includes(o.suit) ? o.suit : 'none', acc: c(o.acc) ? o.acc : 0xffb547, mask: MASKS.includes(o.mask) ? o.mask : 'none',
       cape: o.cape === 'y' ? 'y' : 'n', build: o.build === 'b' ? 'b' : 'n' };
   } catch { return null; }

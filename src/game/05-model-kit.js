@@ -103,19 +103,20 @@ function hairMaterial(base, u) {
   m.customProgramCacheKey = () => 'san7-hair';
   return m;
 }
-// Give figure f the model for body kind ('m' or 'f'), replacing the one it has
+// Give figure f the model for body kind ('m', 'f' or a skin body), replacing the one it has
 function attachModel(f, kind) {
-  const K = CHAR.kinds[kind], old = f.model;
+  const K = CHAR.kinds[kind], old = f.model, skin = isSkin(kind);
   const inst = THREE.SkeletonUtils.clone(K.src);
   inst.rotation.y = Math.PI; inst.scale.setScalar(K.s);
   const u = { uShirt: { value: new THREE.Color() }, uShorts: { value: new THREE.Color() }, uSkin: { value: new THREE.Color(1, 1, 1) },
     uSock: { value: linColor(0xf4f4f0) }, uShoe: { value: linColor(0xeceef0) }, uHair: { value: new THREE.Color() },
     uKitA: { value: new THREE.Vector4() }, uKitB: { value: new THREE.Vector4() },
-    uAcc: { value: new THREE.Color() }, uSuit: { value: new THREE.Vector4() }, uArm: { value: K.hero.arm }, uEye: { value: K.hero.eye } };
+    uAcc: { value: new THREE.Color() }, uSuit: { value: new THREE.Vector4() }, uArm: { value: K.hero ? K.hero.arm : new THREE.Vector4() }, uEye: { value: K.hero ? K.hero.eye : new THREE.Vector4() } };
   const face = {};
   inst.traverse(o => {
     if (!o.isMesh) return;
     o.castShadow = true; o.frustumCulled = false; // bones move the mesh beyond its rest bounds
+    if (skin) return; // a skin body keeps its own material
     if (/Superhero/i.test(o.material.name)) o.material = kitMaterial(o.material, KIT[kind], u);
     else if (/Hair/i.test(o.material.name)) { o.material = hairMaterial(o.material, u); face.brows = o; } // eyebrows
     else if (/Eyes/i.test(o.material.name)) face.eyes = o;
@@ -130,39 +131,42 @@ function attachModel(f, kind) {
     for (const c of b.children) walk(c, i);
   })(root, -1);
   const head = inst.getObjectByName('Head');
-  // Hair: every style is built once per player and shown or hidden by the look
+  // Hair: every style is built once per player and shown or hidden by the look (a skin body has none)
   const hair = {};
-  const headHolder = new THREE.Group(); headHolder.matrixAutoUpdate = false; headHolder.matrix.copy(K.headInv); head.add(headHolder);
-  for (const [n, scn] of Object.entries(CHAR.hair)) {
-    const h = scn.clone();
-    h.traverse(o => { if (o.isMesh) { o.castShadow = true; o.material = hairMaterial(o.material, u); } });
-    const author = HAIR_FOR[n];
-    if (author !== kind) {
-      // Made for the other head: move it from that head onto this one and size it to fit
-      const from = CHAR.kinds[author].headPos, r = kind === 'm' ? HEAD_RATIO : 1 / HEAD_RATIO;
-      const fit = new THREE.Group(); fit.matrixAutoUpdate = false;
-      fit.matrix.makeTranslation(K.headPos.x, K.headPos.y, K.headPos.z).multiply(_m1.makeScale(r, r, r)).multiply(new THREE.Matrix4().makeTranslation(-from.x, -from.y, -from.z));
-      fit.add(h); headHolder.add(fit);
-    } else headHolder.add(h);
-    hair[n] = h;
+  let band = null, spiky = null;
+  if (!skin) {
+    const headHolder = new THREE.Group(); headHolder.matrixAutoUpdate = false; headHolder.matrix.copy(K.headInv); head.add(headHolder);
+    for (const [n, scn] of Object.entries(CHAR.hair)) {
+      const h = scn.clone();
+      h.traverse(o => { if (o.isMesh) { o.castShadow = true; o.material = hairMaterial(o.material, u); } });
+      const author = HAIR_FOR[n];
+      if (author !== kind) {
+        // Made for the other head: move it from that head onto this one and size it to fit
+        const from = CHAR.kinds[author].headPos, r = kind === 'm' ? HEAD_RATIO : 1 / HEAD_RATIO;
+        const fit = new THREE.Group(); fit.matrixAutoUpdate = false;
+        fit.matrix.makeTranslation(K.headPos.x, K.headPos.y, K.headPos.z).multiply(_m1.makeScale(r, r, r)).multiply(new THREE.Matrix4().makeTranslation(-from.x, -from.y, -from.z));
+        fit.add(h); headHolder.add(fit);
+      } else headHolder.add(h);
+      hair[n] = h;
   }
   // Spiky hair: worn over the buzzed hair, in the hair colour
   if (!K.spiky) K.spiky = spikyGeo(K.headPos);
-  const spiky = new THREE.Mesh(K.spiky, new THREE.MeshStandardMaterial({ roughness: 0.6, flatShading: true }));
+  spiky = new THREE.Mesh(K.spiky, new THREE.MeshStandardMaterial({ roughness: 0.6, flatShading: true }));
   spiky.castShadow = true; headHolder.add(spiky);
   // Sweatband round the forehead, tipped down a little at the front (rest-pose head, model faces +z)
-  const band = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.014, 8, 32), f.mats.top);
+  band = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.014, 8, 32), f.mats.top);
   band.rotation.x = Math.PI / 2 - 0.22; band.scale.set(0.98, 1.12, 1.4); band.castShadow = true;
   band.position.set(0, kind === 'f' ? 1.692 : 1.738, -0.012);
   headHolder.add(band);
+  }
   // Fingers: a grip on the racket hand, a loose curl on the other
   for (const side of ['r', 'l']) for (const fg of ['index', 'middle', 'ring', 'pinky']) CURL[side].forEach((a, j) => {
     const b = inst.getObjectByName(`${fg}_0${j + 1}_${side}`); if (b) b.quaternion.multiply(_q2.setFromAxisAngle(_v1.set(1, 0, 0), a));
   });
   for (const [n, a] of [['thumb_02_r', 0.45], ['thumb_03_r', 0.5]]) { const b = inst.getObjectByName(n); if (b) b.quaternion.multiply(_q2.setFromAxisAngle(_v1.set(1, 0, 0), a)); }
   // Shoes, fixed to the foot bones (shared geometry per body)
-  if (!K.shoes) { const kit = KIT[kind]; K.shoes = { r: shoeGeos(kit, -1), l: shoeGeos(kit, 1) }; }
-  for (const side of ['l', 'r']) {
+  if (!skin && !K.shoes) { const kit = KIT[kind]; K.shoes = { r: shoeGeos(kit, -1), l: shoeGeos(kit, 1) }; }
+  if (!skin) for (const side of ['l', 'r']) {
     const h = new THREE.Group(); h.matrixAutoUpdate = false; h.matrix.copy(K.footInv[side]);
     for (const part of ['upper', 'sole']) { const o = new THREE.Mesh(K.shoes[side][part], SHOE_MATS[part]); o.castShadow = true; h.add(o); }
     inst.getObjectByName('foot_' + side).add(h);
@@ -186,10 +190,13 @@ function attachModel(f, kind) {
 }
 function isRacketPart(f, o) { for (let p = o; p; p = p.parent) if (p === f.racket.plain || p === f.racket.custom.g) return true; return false; }
 function applyModelLook(f, look) {
-  const kind = look.body === 'f' ? 'f' : 'm';
+  // A skin body that did not load falls back to the female body
+  const kind = isSkin(look.body) ? (CHAR.kinds[look.body] ? look.body : 'f') : look.body === 'f' ? 'f' : 'm';
   if (!f.model || f.model.kind !== kind) attachModel(f, kind);
   const M = f.model, u = M.u;
   for (const o of M.hidden) o.visible = false;
+  // A skin body wears its own outfit: no skirt or cape over it
+  if (isSkin(kind)) { f.wear.skirt.visible = false; f.cape.mesh.visible = false; return; }
   u.uShirt.value.copy(linColor(look.shirt));
   u.uShorts.value.copy(linColor(look.bt === 'skirt' ? look.skirt : look.shorts));
   const sk = linColor(look.skin); u.uSkin.value.setRGB(sk.r / SKIN_REF.r, sk.g / SKIN_REF.g, sk.b / SKIN_REF.b);

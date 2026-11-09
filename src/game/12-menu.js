@@ -41,22 +41,23 @@ else {
 
 /* ---------- character customizer ---------- */
 const LOOK_OPTS = [
-  { pick: 'body', label: 'Dáng người', opts: [['m', 'Nam'], ['f', 'Nữ']] },
-  { pick: 'build', label: 'Thân hình', opts: [['n', 'Thường'], ['b', 'Cơ bắp']] },
+  // Skin bodies (SKIN_BODIES) wear their own outfit: the rows for clothes, skin and hair are hidden for them
+  { pick: 'body', label: 'Dáng người', opts: [['m', 'Nam'], ['f', 'Nữ'], ...Object.entries(SKIN_BODIES).map(([id, b]) => [id, b.label])] },
+  { pick: 'build', when: l => !isSkin(l.body), label: 'Thân hình', opts: [['n', 'Thường'], ['b', 'Cơ bắp']] },
   // A `pick` row is a switch; a row with `when` only shows while that switch is on that value (or while
   // `when(look)` is true). Shorts and skirt each keep their own colour, and so do the plain racket and the custom one.
-  { pick: 'suit', label: 'Trang phục', opts: [['none', 'Áo quần'], ['v', 'Chữ V'], ['bolt', 'Tia chớp'], ['side', 'Sọc hông'], ['star', 'Ngôi sao']] },
-  { k: 'shirt', label: l => l.suit === 'none' ? 'Áo' : 'Màu bộ đồ', colors: [0xf0643a, 0x3f9ef0, 0xe8a23a, 0x5b6ff0, 0x2fbf71, 0xe5484d, 0xc056d8, 0x14b8a6, 0xf2f2ee, 0x2b2f36] },
-  { pick: 'bt', when: l => l.suit === 'none', label: 'Quần hay váy', opts: [['shorts', 'Quần'], ['skirt', 'Váy']] },
-  { k: 'shorts', when: l => l.suit === 'none' && l.bt === 'shorts', label: 'Màu quần', colors: [0x1f2a36, 0x2b2f36, 0xf2f2ee, 0x3f5d8a, 0x7a3d2c, 0x3a6b45] },
-  { k: 'skirt', when: l => l.suit === 'none' && l.bt === 'skirt', label: 'Màu váy', colors: [0xf2f2ee, 0xf4a6c0, 0xe5484d, 0xc056d8, 0x3f9ef0, 0x14b8a6, 0xffb547, 0x2b2f36] },
-  { pick: 'mask', label: 'Mặt nạ', opts: [['none', 'Không'], ['eye', 'Bịt mắt'], ['full', 'Trùm đầu']] },
-  { pick: 'cape', label: 'Áo choàng', opts: [['n', 'Không'], ['y', 'Có']] },
+  { pick: 'suit', when: l => !isSkin(l.body), label: 'Trang phục', opts: [['none', 'Áo quần'], ['v', 'Chữ V'], ['bolt', 'Tia chớp'], ['side', 'Sọc hông'], ['star', 'Ngôi sao']] },
+  { k: 'shirt', when: l => !isSkin(l.body), label: l => l.suit === 'none' ? 'Áo' : 'Màu bộ đồ', colors: [0xf0643a, 0x3f9ef0, 0xe8a23a, 0x5b6ff0, 0x2fbf71, 0xe5484d, 0xc056d8, 0x14b8a6, 0xf2f2ee, 0x2b2f36] },
+  { pick: 'bt', when: l => !isSkin(l.body) && l.suit === 'none', label: 'Quần hay váy', opts: [['shorts', 'Quần'], ['skirt', 'Váy']] },
+  { k: 'shorts', when: l => !isSkin(l.body) && l.suit === 'none' && l.bt === 'shorts', label: 'Màu quần', colors: [0x1f2a36, 0x2b2f36, 0xf2f2ee, 0x3f5d8a, 0x7a3d2c, 0x3a6b45] },
+  { k: 'skirt', when: l => !isSkin(l.body) && l.suit === 'none' && l.bt === 'skirt', label: 'Màu váy', colors: [0xf2f2ee, 0xf4a6c0, 0xe5484d, 0xc056d8, 0x3f9ef0, 0x14b8a6, 0xffb547, 0x2b2f36] },
+  { pick: 'mask', when: l => !isSkin(l.body), label: 'Mặt nạ', opts: [['none', 'Không'], ['eye', 'Bịt mắt'], ['full', 'Trùm đầu']] },
+  { pick: 'cape', when: l => !isSkin(l.body), label: 'Áo choàng', opts: [['n', 'Không'], ['y', 'Có']] },
   // Trim of the suit (pattern, gloves, boots, belt), the mask over the eyes and the cape
-  { k: 'acc', when: l => l.suit !== 'none' || l.mask === 'eye' || l.cape === 'y', label: 'Màu phụ', colors: [0xffb547, 0xe5484d, 0x3f9ef0, 0x2fbf71, 0xc056d8, 0x14b8a6, 0xf2f2ee, 0x2b2f36] },
+  { k: 'acc', when: l => !isSkin(l.body) && (l.suit !== 'none' || l.mask === 'eye' || l.cape === 'y'), label: 'Màu phụ', colors: [0xffb547, 0xe5484d, 0x3f9ef0, 0x2fbf71, 0xc056d8, 0x14b8a6, 0xf2f2ee, 0x2b2f36] },
   // Natural skin tones, then green, blue and purple for a superhero
-  { k: 'skin', label: 'Da', colors: [0xf1d0b5, 0xe0ac8a, 0xc98f6b, 0xa56b46, 0x6f4429, 0x6aa84f, 0x4f7fc4, 0x8a63c9] },
-  { k: 'hair', label: 'Tóc', colors: [0x1d1a17, 0x4a2f1d, 0x8a5a2b, 0xd8b45a, 0xb23a2e, 0x9aa0a6] },
+  { k: 'skin', when: l => !isSkin(l.body), label: 'Da', colors: [0xf1d0b5, 0xe0ac8a, 0xc98f6b, 0xa56b46, 0x6f4429, 0x6aa84f, 0x4f7fc4, 0x8a63c9] },
+  { k: 'hair', when: l => !isSkin(l.body), label: 'Tóc', colors: [0x1d1a17, 0x4a2f1d, 0x8a5a2b, 0xd8b45a, 0xb23a2e, 0x9aa0a6] },
   { pick: 'hand', label: 'Tay cầm vợt', opts: [['R', 'Tay phải'], ['L', 'Tay trái']] },
   { pick: 'rk', label: 'Kiểu vợt', opts: [['plain', 'Thường', 'Một màu'], ['custom', 'Custom', 'K520 Pro · 100ZZ']] },
   { k: 'racket', when: ['rk', 'plain'], label: 'Màu vợt', colors: [0xf0643a, 0x3f9ef0, 0xe5484d, 0x2fbf71, 0xffb547, 0xf2f2ee, 0x2b2f36] },
@@ -89,6 +90,7 @@ function buildLookOpts() {
     row.append(lb, sws); box.append(row);
   }
   for (const el of document.querySelectorAll('input[name="hs"]')) el.checked = el.value === myLook.hs;
+  $('hs-short').closest('.opt').hidden = isSkin(myLook.body); // the hair style row is in the markup
 }
 // Switch (Quần / Váy, Thường / Custom, the suit patterns…), placed right above the row it switches.
 // Two choices sit side by side; more wrap three to a row.

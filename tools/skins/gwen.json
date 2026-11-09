@@ -1,0 +1,37 @@
+{
+  "name": "Gwen",
+  "out": "assets/characters/gwen",
+  "texture": "tex/gwen_base.jpg",
+  "roughness": 0.55,
+  "bones": {
+    "root ground": "root",
+    "root hips": "pelvis",
+    "Spine lower": "spine_01",
+    "Spine upper": "spine_02",
+    "Head neck lower": "neck_01",
+    "Head neck lower(1)": "Head",
+
+    "Bone013": "clavicle_l",
+    "Bone014": "upperarm_l",
+    "Bone015": "lowerarm_l",
+    "Bone016": "hand_l",
+    "Bone017": "thumb_01_l", "Bone018": "thumb_02_l", "Bone019": "thumb_03_l",
+    "Bone020": "index_01_l", "Bone021": "index_02_l", "Bone022": "index_03_l",
+    "Bone023": "middle_01_l", "Bone024": "middle_02_l", "Bone025": "middle_03_l",
+    "Bone026": "ring_01_l", "Bone027": "ring_02_l", "Bone028": "ring_03_l",
+    "Bone029": "pinky_01_l", "Bone030": "pinky_02_l", "Bone031": "pinky_03_l",
+
+    "Bone013(mirrored)": "clavicle_r",
+    "Bone014(mirrored)": "upperarm_r",
+    "Bone015(mirrored)": "lowerarm_r",
+    "Bone016(mirrored)": "hand_r",
+    "Bone017(mirrored)": "thumb_01_r", "Bone018(mirrored)": "thumb_02_r", "Bone019(mirrored)": "thumb_03_r",
+    "Bone020(mirrored)": "index_01_r", "Bone021(mirrored)": "index_02_r", "Bone022(mirrored)": "index_03_r",
+    "Bone023(mirrored)": "middle_01_r", "Bone024(mirrored)": "middle_02_r", "Bone025(mirrored)": "middle_03_r",
+    "Bone026(mirrored)": "ring_01_r", "Bone027(mirrored)": "ring_02_r", "Bone028(mirrored)": "ring_03_r",
+    "Bone029(mirrored)": "pinky_01_r", "Bone030(mirrored)": "pinky_02_r", "Bone031(mirrored)": "pinky_03_r",
+
+    "Bone009": "thigh_l", "Bone010": "calf_l", "Bone011": "foot_l", "Bone012": "ball_l",
+    "Bone009(mirrored)": "thigh_r", "Bone010(mirrored)": "calf_r", "Bone011(mirrored)": "foot_r", "Bone012(mirrored)": "ball_r"
+  }
+}

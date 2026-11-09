@@ -8,6 +8,7 @@ Game cầu lông 3D (Three.js r128, không bundler, không npm dependency). `ser
 
 - `src/index.html`: markup (menu, HUD, nút cảm ứng). Có hai chỗ đánh dấu `<!-- @style -->`, `<!-- @game -->` để build chèn vào.
 - `src/style.css`: toàn bộ CSS.
+- `tools/xnalara-to-gltf.js` + `tools/skins/*.json`: chuyển model XNALara (`.mesh.ascii`) sang glTF với tên xương Quaternius, cho các thân trong `SKIN_BODIES`.
 - `src/game/*.js`: mã game, ghép theo thứ tự tên file:
 
 | File | Nội dung | Hàm chính |
