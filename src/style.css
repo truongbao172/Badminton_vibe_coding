@@ -79,16 +79,17 @@ body:not(.touch) .only-touch{display:none!important}
 #bJump{width:70px;height:70px;font-size:14px;background:rgba(9,20,31,.7)}
 #bHit{width:88px;height:88px;font-size:16px;background:var(--led);color:var(--led-ink);border-color:transparent;margin-bottom:26px}
 .act:active{transform:scale(.95)}
-/* Hit power: fills while the hit button is held; full = strong */
-#power{display:flex;align-items:center;gap:10px;font-family:var(--display);font-size:11px;font-weight:600;letter-spacing:.12em;color:var(--muted);
-  background:var(--panel);border:1px solid var(--edge);border-radius:999px;padding:6px 14px;opacity:0;transition:opacity .25s}
+/* Hit power, in the scoreboard under stamina: dim at rest, lights up while the hit button is held; full = strong */
+#power{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:10px;font-weight:600;letter-spacing:.14em;color:var(--muted);margin-top:4px;
+  opacity:.35;transition:opacity .25s}
 #power.show{opacity:1;transition:none}
-#power i{width:160px;height:6px;border-radius:3px;background:rgba(238,243,241,.12);overflow:hidden}
+#power i{flex:1;height:4px;border-radius:2px;background:rgba(238,243,241,.12);overflow:hidden}
 #power b{display:block;height:100%;background:var(--ink);transform-origin:left;transform:scaleX(0)}
-#power.soft span:first-child{color:var(--ink)}
-#power.strong{border-color:var(--led)}
-#power.strong span:last-child{color:var(--led)}
+#power.show.soft span:first-child{color:var(--ink)}
+#power.show.strong span:last-child{color:var(--led)}
 #power.strong b{background:var(--led);box-shadow:0 0 8px var(--led)}
+/* Phones: no shot name on every hit */
+body.touch #shot{display:none}
 
 .overlay{position:fixed;inset:0;z-index:20;display:grid;place-items:center;overflow:auto;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));

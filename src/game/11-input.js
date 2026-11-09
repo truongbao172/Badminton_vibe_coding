@@ -119,7 +119,7 @@ function updatePower(dt) {
   powerKey = k;
   const el = $('power');
   el.classList.toggle('show', show);
-  if (!show) return;
+  if (!show) { $('powerBar').style.transform = 'scaleX(0)'; el.classList.remove('soft', 'strong'); return; }
   el.classList.toggle('strong', hitCharged); el.classList.toggle('soft', !hitCharged);
   $('powerBar').style.transform = `scaleX(${fill})`;
 }
