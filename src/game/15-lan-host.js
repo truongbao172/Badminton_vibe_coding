@@ -2,7 +2,7 @@
 // play it forward to now; the computer players start as late as the news reached us. The host's late screen (PV)
 // gets the new course from `at` on; if it had already shown past `at`, its shuttle slides over.
 function replayFrom(at, j, st, apply) {
-  const now = performance.now(), back = clamp(S.simT - st, 0, 1.1);
+  const now = performance.now(), back = clamp(S.simT - st, 0, REWIND_MS / 1000);
   hostHist.length = j + 1; pendLand = null; PV.patchFrom = at;
   evAt = simWall = at; apply();
   for (const k of members(1 - S.lastTeam)) { const b = ath(k); if (!isHuman(k) && b.delay > 0) b.delay = Math.max(0, b.delay - back); }
@@ -17,7 +17,7 @@ function serveAs(idx, type) {
   const H = hostHist, at = PV.ts;
   let j = H.length - 1;
   while (j > 0 && H[j].w > at) j--;
-  if (!PV.on || idx !== me || !H.length || H[j].w > at || S.simT - H[j].st > 1.1) { launchServe(type); return; }
+  if (!PV.on || idx !== me || !H.length || H[j].w > at || S.simT - H[j].st > REWIND_MS / 1000) { launchServe(type); return; }
   replayFrom(at, j, H[j].st, () => launchServe(type));
 }
 
@@ -99,6 +99,7 @@ function pvFrame(dt) {
   const lag = guests.map(guestLag).filter(Number.isFinite);
   const want = guests.length ? clamp(lag.length ? Math.max(...lag) : 150, 40, 600) : 0;
   PV.L += clamp(want - PV.L, -dt * 30, dt * 100); // (as fast as a guest's own delay moves, clockTick)
+  netWarn(PV.L, performance.now());
   const B = PV.buf, ts = last - PV.L;
   if ((!guests.length && PV.L < 2) || (!live && (!B.length || ts >= B[B.length - 1].t))) { pvStop(); return false; }
   if (!B.length) return false;
@@ -130,13 +131,30 @@ function pvFrame(dt) {
   for (const [b, k] of kept) Object.assign(b, k);
   return true;
 }
-// F3 meter: how far behind the network pictures are drawn
+// F3 meter: how far behind the network pictures are drawn, how uneven the reports arrive (p50/p97 of their
+// lateness against the quickest ones) and how many come per second
+function lateInfo(c) {
+  if (c.late.length < 20) return '';
+  const s = c.late.slice().sort((x, y) => x - y);
+  return ` · gói đến trễ ${Math.max(0, Math.round(s[s.length >> 1]))}/${Math.max(0, Math.round(s[Math.floor(s.length * 0.97)]))} ms`;
+}
 function netInfo() {
-  if (S.mode === 'guest' && NET.buf.length) return ` · mạng: vẽ trễ ${Math.round(NET.clk.D)} ms`;
+  if (S.mode === 'guest' && NET.buf.length) return ` · mạng: vẽ trễ ${Math.round(NET.clk.D)} ms${lateInfo(NET.clk)} · ${NET.rate} gói/s`;
   if (S.mode !== 'host') return '';
-  if (PV.on) return ` · mạng: chủ sân vẽ trễ ${Math.round(PV.L)} ms cho khớp với khách`;
-  const g = remoteIn.filter((r, i) => i !== me && i < S.n && isHuman(i) && r.buf.length).map(r => Math.round(r.clk.D));
-  return g.length ? ` · mạng: khách vẽ trễ ${g.join('/')} ms` : '';
+  const g = remoteIn.filter((r, i) => i !== me && i < S.n && isHuman(i) && r.buf.length);
+  const rtt = g.filter(r => r.rtt.length).map(r => Math.round(Math.min(...r.rtt))), late = g.map(r => lateInfo(r.clk)).join('');
+  const ping = rtt.length ? ` · ping ${rtt.join('/')} ms` : '';
+  if (PV.on) return ` · mạng: chủ sân vẽ trễ ${Math.round(PV.L)} ms cho khớp với khách${ping}${late}`;
+  return g.length ? ` · mạng: khách vẽ trễ ${g.map(r => Math.round(r.clk.D)).join('/')} ms${ping}${late}` : '';
+}
+// A slow connection makes every screen draw far behind the match (D on a guest, PV.L on the host). Past ~320 ms
+// the game feels sluggish whatever the smoothing does, so say so once in a while instead of leaving players to
+// wonder whether the game is at fault.
+const NET_WARN_MS = 320;
+function netWarn(lag, now) {
+  if (lag < NET_WARN_MS || now - NET.warnAt < 30000 || (S.state !== 'rally' && S.state !== 'serve')) return;
+  NET.warnAt = now;
+  toast('Mạng chậm', `Hình vẽ trễ ${Math.round(lag)} ms so với trận đấu · bấm F3 để xem số liệu`, 2.2);
 }
 $('btnPause').addEventListener('click', () => setPaused(!S.paused));
 $('btnSound').addEventListener('click', e => { muted = !muted; e.currentTarget.setAttribute('aria-pressed', String(!muted)); if (!muted) ensureAudio(); });

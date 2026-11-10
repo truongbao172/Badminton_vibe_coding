@@ -22,27 +22,38 @@ const fill = new THREE.DirectionalLight(0xbcd6ff, 0.3); fill.position.set(-5, 8,
 // Measured on an M1 Pro: drawing the frame costs the GPU ~7.8 ms at 2× resolution and ~4.6 ms at 1×, while the
 // game logic costs ~1 ms. So quality is mostly resolution. 'auto' starts sharp and, while frames keep running
 // slower than ~50 FPS, steps the resolution down by 0.25 (never back up in the same session, so it cannot flicker).
+// On weaker machines (office laptops with an integrated GPU) 1x is still too slow, and uneven 25-40 FPS frames make
+// a network match look jerky on every screen: so 'auto' then shrinks the shadow map as well (gfx.lvl: 1024, then 512).
+// The filter stays as it is: a new filter or no shadows at all would rebuild every shader, which froze a host for
+// 2.5 s mid-match when tried.
 const GFX_KEY = 'san7-gfx', FPS_KEY = 'san7-fps', DPR = window.devicePixelRatio || 1;
 const GFX_ORDER = ['auto', 'cao', 'vua', 'thap'];
 const GFX_NAMES = { auto: 'Tự động', cao: 'Cao', vua: 'Vừa', thap: 'Thấp' };
 const GFX_PRESETS = { auto: { pr: 2, shadow: 2048, soft: true }, cao: { pr: 2, shadow: 2048, soft: true }, vua: { pr: 1.5, shadow: 2048, soft: false }, thap: { pr: 1, shadow: 1024, soft: false } };
-const gfx = { mode: 'auto', pr: 1, hold: 0, sum: 0, n: 0, show: false, fSum: 0, fN: 0, fT: 0 };
+const gfx = { mode: 'auto', pr: 1, lvl: 0, hold: 0, sum: 0, n: 0, show: false, fSum: 0, fN: 0, fT: 0 };
+const GFX_LVL = [null, { shadow: 1024 }, { shadow: 512 }]; // auto steps past 1x (same filter, see above)
 try { const v = localStorage.getItem(GFX_KEY); if (GFX_NAMES[v]) gfx.mode = v; gfx.show = localStorage.getItem(FPS_KEY) === '1'; } catch (e) {}
 function applyGfx() {
   const p = GFX_PRESETS[gfx.mode];
-  gfx.pr = Math.min(DPR, p.pr);
+  gfx.pr = Math.min(DPR, p.pr); gfx.lvl = 0;
   renderer.setPixelRatio(gfx.pr);
-  const type = p.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
-  if (renderer.shadowMap.type !== type) {
-    renderer.shadowMap.type = type;
-    scene.traverse(o => { if (o.material) [].concat(o.material).forEach(m => { m.needsUpdate = true; }); }); // rebuild shaders for the new filter
+  applyShadow(p);
+  gfx.hold = performance.now() + 3000; gfx.sum = gfx.n = 0; // let the new setting settle before judging it
+  gfxLabels();
+}
+// Shadow quality: the map size, and (when given) the soft or hard filter
+function applyShadow(p) {
+  if (p.soft !== undefined) {
+    const type = p.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+    if (renderer.shadowMap.type !== type) {
+      renderer.shadowMap.type = type;
+      scene.traverse(o => { if (o.material) [].concat(o.material).forEach(m => { m.needsUpdate = true; }); }); // rebuild shaders for the new filter
+    }
   }
   if (sun.shadow.mapSize.x !== p.shadow) {
     sun.shadow.mapSize.set(p.shadow, p.shadow);
     if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
   }
-  gfx.hold = performance.now() + 3000; gfx.sum = gfx.n = 0; // let the new setting settle before judging it
-  gfxLabels();
 }
 function gfxLabels() {
   const t = `Đồ hoạ: ${GFX_NAMES[gfx.mode]}`;
@@ -65,16 +76,20 @@ function tuneGfx(ms, now) {
   if (gfx.show) {
     gfx.fSum += ms; gfx.fN++;
     if (now - gfx.fT > 500) {
-      $('fpsMeter').textContent = `${Math.round(1000 * gfx.fN / gfx.fSum)} FPS · ${(gfx.fSum / gfx.fN).toFixed(1)} ms · ${GFX_NAMES[gfx.mode]} ×${gfx.pr}${netInfo()}`;
+      $('fpsMeter').textContent = `${Math.round(1000 * gfx.fN / gfx.fSum)} FPS · ${(gfx.fSum / gfx.fN).toFixed(1)} ms · ${GFX_NAMES[gfx.mode]} ×${gfx.pr}${gfx.lvl ? ` · bóng ${GFX_LVL[gfx.lvl].shadow}` : ''}${netInfo()}`;
       gfx.fSum = gfx.fN = 0; gfx.fT = now;
     }
   }
-  if (gfx.mode !== 'auto' || gfx.pr <= 1 || now < gfx.hold) return;
+  if (gfx.mode !== 'auto' || (gfx.pr <= 1 && gfx.lvl >= GFX_LVL.length - 1) || now < gfx.hold) return;
   // A stall or a hidden tab says nothing about how heavy the drawing is
   if (ms > 250 || document.hidden) { gfx.sum = gfx.n = 0; return; }
   gfx.sum += ms; gfx.n++;
   if (gfx.sum < 2000) return;
-  if (gfx.sum / gfx.n > 20) { gfx.pr = Math.max(1, gfx.pr - 0.25); renderer.setPixelRatio(gfx.pr); gfx.hold = now + 3000; }
+  if (gfx.sum / gfx.n > 20) {
+    if (gfx.pr > 1) { gfx.pr = Math.max(1, gfx.pr - 0.25); renderer.setPixelRatio(gfx.pr); }
+    else applyShadow(GFX_LVL[++gfx.lvl]);
+    gfx.hold = now + 3000;
+  }
   gfx.sum = gfx.n = 0;
 }
 applyGfx();

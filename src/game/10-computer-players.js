@@ -112,11 +112,12 @@ function physicsStep(dt) {
 }
 
 // The shuttle is down. A guest on that side sees the match a little late and may still hit it on its screen
-// (takeGuestHit). Wait only while one of them really could (at most 1 s); otherwise judge it at once.
+// (takeGuestHit). Wait only while one of them really could (at most REWIND_MS, the time a hit report may take to
+// get here through a stalled connection); otherwise judge it at once.
 function touchDown(x, z) {
   const half = z > 0 ? 0 : 1, w = simWall;
   if (S.mode === 'host' && S.state === 'rally' && !S.netFault && half !== S.lastTeam && members(half).some(i => isHuman(i) && (i !== me || PV.on) && mayStillHit(i, w))) {
-    pendLand = { x, z, half, w, until: performance.now() + 1000 }; return;
+    pendLand = { x, z, half, w, until: performance.now() + REWIND_MS }; return;
   }
   landFx(x, z); landed(x, z);
 }

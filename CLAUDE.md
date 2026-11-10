@@ -9,6 +9,7 @@ Game cầu lông 3D (Three.js r128, không bundler, không npm dependency). `ser
 - `src/index.html`: markup (menu, HUD, nút cảm ứng). Có hai chỗ đánh dấu `<!-- @style -->`, `<!-- @game -->` để build chèn vào.
 - `src/style.css`: toàn bộ CSS.
 - `tools/xnalara-to-gltf.js` + `tools/skins/*.json`: chuyển model XNALara (`.mesh.ascii`) sang glTF với tên xương Quaternius, cho các thân trong `SKIN_BODIES`.
+- `tools/nettest/`: đo độ mượt khi chơi qua mạng. `wsprobe.mjs` đo trễ một chiều thật qua Render; `run.mjs` (Playwright, Chromium headless) cho hai trang chủ sân/khách tự đánh với nhau qua proxy phát lại trễ đã ghi (`delays.json`), đếm số khung bị giật, cú đánh của khách bị từ chối, FPS. Cách dùng ghi ở đầu `run.mjs`.
 - `src/game/*.js`: mã game, ghép theo thứ tự tên file:
 
 | File | Nội dung | Hàm chính |

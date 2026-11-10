@@ -14,6 +14,7 @@ function applySnap(m) {
   B.push(bufEntry(m, t));
   while (B.length > 2 && B[1].t < now - 2000) B.shift();
   NET.he = m.tm; NET.heAt = now; // (echoed back in our reports, for the host to time the round trip)
+  NET.rateN++; if (now - NET.rateAt >= 1000) { NET.rate = NET.rateN; NET.rateN = 0; NET.rateAt = now; }
   // The host has taken our own hit: the snapshots from this one on carry it
   if (NET.hit && NET.hit.ok && NET.hit.until === null) NET.hit.until = t;
   if (m.pa !== S.paused) applyPaused(m.pa);
@@ -76,7 +77,7 @@ function clockTick(c, dt, gap = 20, hi = 400) {
   const s = c.late.slice().sort((x, y) => x - y), want = clamp(s[Math.floor(s.length * 0.97)] + gap, 30, hi);
   c.D += clamp(want - c.D, -dt * 30, dt * 100);
 }
-const NET = { clk: netClock(), buf: [], evq: [], he: null, heAt: 0, hit: null, hid: 0, shownA: null, shRaw: null, shKey: null, shOff: { x: 0, y: 0, z: 0 } };
+const NET = { clk: netClock(), buf: [], evq: [], he: null, heAt: 0, hit: null, hid: 0, shownA: null, shRaw: null, shKey: null, shOff: { x: 0, y: 0, z: 0 }, rate: 0, rateN: 0, rateAt: 0, warnAt: 0 };
 function resetNet() {
   Object.assign(NET, { clk: netClock(), buf: [], evq: [], he: null, heAt: 0, hit: null, shownA: null, shRaw: null, shKey: null, lerpTo: null, prevRt: null });
   NET.shOff.x = NET.shOff.y = NET.shOff.z = 0; jumpHeard = 0;
@@ -217,6 +218,7 @@ function guestTick(dt) {
   let vt = 0;
   if (NET.buf.length) {
     clockTick(NET.clk, dt);
+    netWarn(NET.clk.D, now);
     // (the frame's own time, not the moment this code happens to run, so each frame moves by an even step)
     const rt = last - NET.clk.D, [A, B] = netPair(NET.buf, rt), fresh = A !== NET.shownA;
     const dtR = NET.prevRt == null ? dt : clamp((rt - NET.prevRt) / 1000, 0, 0.1);
@@ -239,7 +241,7 @@ function guestTick(dt) {
     // The shuttle at time rt. After our own hit it flies on here from where we hit it, until the host's
     // snapshots carry that hit (or the host turns it down)
     const H = NET.hit;
-    if (H && (H.ok === false || now - H.sent > (H.ok ? 3000 : 1500) || (H.until !== null && rt >= H.until))) NET.hit = null;
+    if (H && (H.ok === false || now - H.sent > (H.ok ? 3000 : REWIND_MS + 500) || (H.until !== null && rt >= H.until))) NET.hit = null;
     let q = NET.hit ? hitFlight(NET.hit, rt) : netShuttleAt(A, B, rt);
     if (!NET.hit && ownHitReady(A, q, a)) { guestHit(q, rt); q = hitFlight(NET.hit, rt); }
     showShuttle(q, dt, dtR);
@@ -255,11 +257,15 @@ function guestTick(dt) {
 }
 /* Host: a guest's own hit (guestHit). The guest saw the match at `at` (host clock). Check the shuttle really was
    there then and nobody has hit it since, put it back to that moment with the guest's shot, and play the match
-   forward to now. The host's own screen slides the shuttle over instead of jumping. */
+   forward to now. The host's own screen slides the shuttle over instead of jumping.
+   REWIND_MS: how far back a hit may reach. Through Render a hit report is normally 100-300 ms old when it gets here,
+   but TCP now and then holds everything back for 1-2 s (measured p98 1.4 s on a bad day); a hit that looked right
+   on the guest's screen must still count after such a stall, so the match keeps a little over 2 s of history. */
+const REWIND_MS = 2000;
 function recordHist(w, st) {
   if (S.mode !== 'host') return;
   hostHist.push({ w, st, p: { x: shuttle.p.x, y: shuttle.p.y, z: shuttle.p.z }, mode: shuttle.mode, hn: S.hits });
-  while (hostHist.length > 2 && hostHist[0].w < w - 1300) hostHist.shift();
+  while (hostHist.length > 2 && hostHist[0].w < w - (REWIND_MS + 300)) hostHist.shift();
 }
 function takeGuestHit(i, m) {
   if (S.paused || S.state !== 'rally' || S.netFault || !(m.k in SHOTS) || m.k === 'long' || m.k === 'short') return false;
@@ -269,7 +275,7 @@ function takeGuestHit(i, m) {
   const p = vec(m.p), v = vec(m.v);
   if (!p || !v || Math.sign(p.z) !== a.side || p.y < 0.1 || p.y > 3.8 || v.z * a.side >= 0 || Math.hypot(v.x, v.y, v.z) > 80) return false;
   const now = performance.now(), at = +m.at, H = hostHist;
-  if (!Number.isFinite(at) || at < now - 1100 || !H.length || H[0].w > at) return false;
+  if (!Number.isFinite(at) || at < now - REWIND_MS || !H.length || H[0].w > at) return false;
   let j = H.length - 1;
   while (j > 0 && H[j].w > at) j--;
   const e0 = H[j], e1 = H[j + 1] || e0;
